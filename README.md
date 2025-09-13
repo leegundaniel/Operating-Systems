@@ -33,6 +33,7 @@ Operating System Concepts (aka The Dinosaur Book)
 - Total 6 assignments
     - Only 5 are graded
     - includes programming xv6, an educational operating system
+- All in the SKKU 인의예지 서버
 
 ## Lecture Topics
 - OS Structure
