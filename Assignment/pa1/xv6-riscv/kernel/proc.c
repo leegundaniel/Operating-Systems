@@ -695,9 +695,12 @@ getpname(int pid)
 {
     struct proc *p;
 
+    //for loop to find pid
     for(p = proc; p < &proc[NPROC]; p++)
     {
         acquire(&p->lock);
+        //if pid found, print name
+        //return 0(success)
         if(p->pid == pid)
         {
             printf("%s\n", p->name);
@@ -706,6 +709,7 @@ getpname(int pid)
         }
         release(&p->lock);
     }
+    //return -1 error
     return -1;
 }
 
@@ -754,6 +758,7 @@ setnice(int pid, int value)
         //if process id = inputted pid
         if(p->pid == pid)
         {
+            // return 0 (success)
             p->nice = value;
             release(&p->lock);
             return 0;
@@ -866,12 +871,11 @@ waitpid(int pid)
             //check for zombie state
             if(p->state == ZOMBIE)
             {
-                int exit_pid = p->pid;
                 release(&p->lock);
                 //free memory
                 freeproc(p);
-                //return pid
-                return exit_pid;
+                //return 0
+                return 0;
             }
             release(&p->lock);
             freeproc(p);
@@ -886,6 +890,6 @@ waitpid(int pid)
 
         //sleep until a child exits
         sleep(myproc(), &p->lock);
-    }
 
+    }
 }
