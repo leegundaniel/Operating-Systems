@@ -1,11 +1,11 @@
 # Answer to PA 2
 ## Requirements
 - create 5 new system calls
-    - [getnice](###getnice(int-pid))
-    - [setnice](###setnice(int-pid,-int-value))
-    - [ps](###ps(int-pid))
-    - [meminfo](###meminfo())
-    - [waitpid](###waitpid(int-pid))
+    - [getnice](#getnice(int-pid))
+    - [setnice](#setnice(int-pid,-int-value))
+    - [ps](#ps(int-pid))
+    - [meminfo](#meminfo())
+    - [waitpid](#waitpid(int-pid))
 
 ### getnice(int pid)
 - obtains nice value of the process `pid`
