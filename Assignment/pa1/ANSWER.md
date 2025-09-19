@@ -1,13 +1,14 @@
 # Answer to PA 2
 ## Requirements
 - create 5 new system calls
-    - [getnice](#getnice(int-pid))
-    - [setnice](#setnice(int-pid,-int-value))
-    - [ps](#ps(int-pid))
-    - [meminfo](#meminfo())
-    - [waitpid](#waitpid(int-pid))
+    - [getnice](#getnice)
+    - [setnice](#setnice)
+    - [ps](#ps)
+    - [meminfo](#meminfo)
+    - [waitpid](#waitpid)
 
-### getnice(int pid)
+### getnice
+- getnice(int pid)
 - obtains nice value of the process `pid`
 
 - return values:
@@ -15,7 +16,8 @@
     - -1 on error
         - no process corresponding to the pid
       
-### setnice(int pid, int value)
+### setnice
+- setnice(int pid, int value)
 - sets the nice value of the process `pid`
   
 - return values:
@@ -23,17 +25,20 @@
     - -1 on error
         - no process corresponding to the pid
       
-### ps(int pid)
+### ps
+- ps(int pid)
 - prints out process(es)'s information, including <u>name, pid, state, and priority (nice value)</u>
     - if pid = 0, print out all processes' information
     - if pid exists, print out information of corresponding process
 - no return value
 
-### meminfo()
+### meminfo
+- meminfo()
 - prints available memory in bytes
 - returns amount of free memory (in bytes) available in the system
 
-### waitpid(int pid)
+### waitpid
+- waitpid(int pid)
 - suspends execution until the specified process terminates
 - return values:
     - 0 on success
