@@ -850,6 +850,7 @@ waitpid(int pid)
 {
     struct proc *p;
     int pid_found;
+    //p2 = parent process
     struct proc *p2 = myproc();
    
     acquire(&wait_lock);
@@ -862,7 +863,9 @@ waitpid(int pid)
         for(p = proc; p < &proc[NPROC]; p++)
         {
             acquire(&p->lock);
-            if(p->pid != pid || p->parent != myproc())
+            //check if this is the right process
+            //also check if current process is child of p2
+            if(p->pid != pid || p->parent != p2)
             {
                 release(&p->lock);
                 continue;
