@@ -850,7 +850,9 @@ waitpid(int pid)
 {
     struct proc *p;
     int pid_found;
-
+    struct proc *p2 = myproc();
+   
+    acquire(&wait_lock);
     //infinite loop
     for(;;)
     {
@@ -872,24 +874,23 @@ waitpid(int pid)
             if(p->state == ZOMBIE)
             {
                 release(&p->lock);
+                release(&wait_lock);
                 //free memory
                 freeproc(p);
                 //return 0
                 return 0;
             }
             release(&p->lock);
-            freeproc(p);
 
         }
 
         //if no such child or current process was killed, return error -1
-        if(!pid_found || myproc()->killed)
+        if(!pid_found || p2->killed)
         {
             return -1;
         }
-
         //sleep until a child exits
-        sleep(myproc(), &p->lock);
+        sleep(p2, &wait_lock);
 
     }
 }
