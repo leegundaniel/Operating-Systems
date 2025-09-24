@@ -19,10 +19,10 @@ int main()
     
     printf(">>>Testing meminfo:\n");
     printf("Available memory: %d bytes\n",meminfo());
-
-
+    
     printf(">>>Testing waitpid:\n");
     pid = fork();
+
 
     //fork failed: exit
     if(pid < 0)
@@ -52,6 +52,6 @@ int main()
         }
         printf("waitpid value: %d\n", wait);
     }
-
+    
     exit(0);
 }

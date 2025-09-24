@@ -850,8 +850,8 @@ waitpid(int pid)
 {
     struct proc *p;
     int pid_found;
-    //p2 = parent process
-    struct proc *p2 = myproc();
+    //current_p = current process
+    struct proc *current_p = myproc();
    
     acquire(&wait_lock);
     //infinite loop
@@ -864,15 +864,23 @@ waitpid(int pid)
         {
             acquire(&p->lock);
             //check if this is the right process
-            //also check if current process is child of p2
-            if(p->pid != pid || p->parent != p2)
+            if(p->pid != pid)
             {
                 release(&p->lock);
                 continue;
             }
 
             pid_found = 1;
+
+            //once process found, check if parent of found child is the current process
+            if(p->parent != current_p)
+            {
+                release(&p->lock);
+                release(&wait_lock);
+                return -1;
+            }
            
+            //process is child of current process
             //check for zombie state
             if(p->state == ZOMBIE)
             {
@@ -888,12 +896,13 @@ waitpid(int pid)
         }
 
         //if no such child or current process was killed, return error -1
-        if(!pid_found || p2->killed)
+        if(!pid_found || current_p->killed)
         {
+            release(&wait_lock);
             return -1;
         }
-        //sleep until a child exits
-        sleep(p2, &wait_lock);
+        //sleep until the child exits
+        sleep(current_p, &wait_lock);
 
     }
 }
