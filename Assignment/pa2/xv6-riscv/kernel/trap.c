@@ -82,7 +82,48 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
-    yield();
+  {
+    // EEVDF Scheduler logic
+    
+    // update runtime/vruntime/time slice for each timer interrupt
+    // for currently running process
+    if(p != 0 && p->state == RUNNING)
+    { 
+        acquire(&p->lock);
+        
+        // increment runtime (in terms of millitick unit)
+        p->runtime += 1000;
+        
+        // decrement timeslice (in terms of millitick unit)
+        p->timeslice -= 1000;
+
+        // update vruntime using formula
+        // vruntime += runtime * 1024 / weight
+        // 1 runtime = 1000 milliticks
+        p->vruntime += 1000 * (1024 / p->weight);
+    
+        // if task runs more than given time slice
+        // update vdeadline and enforce a yield
+        if(p->timeslice <= 0)
+        {
+            // reset timeslice to base value
+            // 5000 milliticks
+            p->timeslice = 5000;
+
+            // update vdeadline
+            // vdeadline = vruntime + base time slice (5000 milliticks) * 1024 / weight
+            p->vdeadline = p->vruntime + (5000 * (1024 / p->weight));
+            release(&p->lock);
+            // enforce yield
+            yield();
+        }
+        else
+        {
+            release(&p->lock);
+        }
+    }
+
+  }
 
   prepare_return();
 
@@ -174,7 +215,7 @@ clockintr()
   // ask for the next timer interrupt. this also clears
   // the interrupt request. 1000000 is about a tenth
   // of a second.
-  w_stimecmp(r_time() + 1000000);
+  w_stimecmp(r_time() + 100000);
 }
 
 // check if it's an external interrupt or software interrupt,

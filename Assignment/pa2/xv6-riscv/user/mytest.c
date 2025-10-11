@@ -2,6 +2,7 @@
 #include "user.h"
 #include "../kernel/stat.h"
 
+
 int main()
 {
     int pid;
@@ -53,5 +54,7 @@ int main()
         printf("waitpid value: %d\n", wait);
     }
     
+    ps(0);
     exit(0);
+
 }

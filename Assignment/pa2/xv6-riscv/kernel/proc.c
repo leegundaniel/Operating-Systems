@@ -15,6 +15,20 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
+// ticks retrieved from trap.c
+extern uint ticks;
+// weight table given in PDF
+static const int weight_table[] = { /* 0 */    88761,  71755,  56483,  46273,  36291,
+                        /*  5 */    29154,  23254,  18705,  14949,  11916,
+                        /* 10 */    9548,   7620,   6100,   4904,   3906,
+                        /* 15 */    3121,   2501,   1991,   1586,   1277,
+                        /* 20 */    1024,   820,    655,    526,    423,
+                        /* 25 */    335,    272,    215,    172,    137,
+                        /* 30 */    110,    87,     70,     56,     45,
+                        /* 35 */    36,     29,     23,     18,     15
+                        };
+
+
 extern void forkret(void);
 static void freeproc(struct proc *p);
 extern int freepagespace(void); //int function to return number of free pages
@@ -126,6 +140,15 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->nice = 20; //default priority value
+  // initialize all variables
+  p->weight = 1024;
+  p->is_eligible = 0;
+  p->timeslice = 5000; // base slice is 5 ticks (5000 milliticks)
+  p->runtime = 0;
+  p->vruntime = 0;
+  p->vdeadline = 5000; // default virtual deadline = 5000 milliticks
+
+
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -278,6 +301,23 @@ kfork(void)
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
+
+
+  // EEVDF Rules
+
+  // child inherits parent process's vruntime, nice value and weight
+  np->nice = p->nice;
+  np->weight = p->weight;
+  np->vruntime = p->vruntime;
+
+  // make sure actual runtime and remaining timeslice is set to default
+  np->runtime = 0;  // runtime = 0
+  np->timeslice = 5000;  // timeslice = 5000 milliticks
+
+  // vdeadline = vruntime + base timeslice (5000 milliticks) * (1024 / weight)
+  np->vdeadline = np->vruntime + (5000 * (1024 / np->weight));
+  // eligibility set to 1
+  np->is_eligible = 1;
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
@@ -435,7 +475,8 @@ scheduler(void)
     // and wfi.
     intr_on();
     intr_off();
-
+    
+    /*
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -457,6 +498,113 @@ scheduler(void)
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
+    }
+    */
+
+    // EEVDF Scheduling Rules
+
+    // process to be selected
+    struct proc *selected_p = 0;
+
+    // -1 = infinity (max value of uint64)
+    uint64 min_vdeadline = -1;
+    uint64 min_vruntime = -1;
+    // will be used to calculate eligibility
+    uint64 total_weight = 0;
+    uint64 weighted_vruntime = 0;
+
+    // for loop to find minimum vruntime and total weight of all runnable processes
+    for(p = proc; p < &proc[NPROC]; p++)
+    {
+        acquire(&p->lock);
+        // make sure process is runnable
+        if(p->state == RUNNABLE)
+        {
+            //if process has the smallest vruntime, update minimum vruntime
+            if(min_vruntime == -1 || p->vruntime < min_vruntime)
+            {
+                min_vruntime = p->vruntime;
+            }
+            // get the sum of the runnable processes' weights
+            total_weight += p->weight;
+        }
+        release(&p->lock);
+    }
+
+
+    // check if runnable process exists (min_vruntime should not be -1)
+    // calculate the weighted sum of all vruntime of the runnable processes
+    if(min_vruntime != -1)
+    {
+        // for loop to calculate the weighted sum of all vruntime
+        for(p = proc; p < &proc[NPROC]; p++)
+        {
+            acquire(&p->lock);
+            // make sure process is runnable
+            if(p->state == RUNNABLE)
+            {
+                // weighted vruntime = (current process' vruntime - minimum vruntime) * current process' weight
+                weighted_vruntime += (p->vruntime - min_vruntime) * p->weight;
+            }
+            release(&p->lock);
+        }
+        
+
+        // for loop to check eligibility
+        for(p = proc; p < &proc[NPROC]; p++)
+        {
+            acquire(&p->lock);
+            // check if process is runnable
+            if(p->state == RUNNABLE)
+            {
+                // set eligibility flag of runnable process
+                // weighted sum >= (current runtime - minimum runtime) * total weight
+                p->is_eligible = (weighted_vruntime >= (p->vruntime - min_vruntime) * total_weight);
+                
+
+                // check if current process is eligible
+                if(p->is_eligible)
+                {
+                    // check if current eligible process has the earliest virtual deadline
+                    // selected_p is empty (0) or current deadline is earlier
+                    if(selected_p == 0 || p->vdeadline < min_vdeadline)
+                    {
+                        // update minimum deadline and the currently selected process
+                        min_vdeadline = p->vdeadline;
+                        selected_p = p;
+                    }
+                }
+            }
+            // make sure all non-runnable processes are set to non-eligible
+            else
+            {
+                p->is_eligible = 0;
+            }
+            release(&p->lock);
+        }
+    }
+
+
+    // run the selected process
+    if(selected_p)
+    {
+        acquire(&selected_p->lock);
+        if(selected_p->state == RUNNABLE)
+        {
+            // switch to the chosen process
+            selected_p->state = RUNNING;
+            c->proc = selected_p;
+            swtch(&c->context, &selected_p->context);
+            // process is done running now, it should have changed its p->state before coming back
+
+            c->proc = 0;
+        }
+        release(&selected_p->lock);
+    }
+    else
+    {
+        // nothing to run; stop running until an interrupt
+        asm volatile("wfi");
     }
   }
 }
@@ -578,6 +726,15 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+        
+        // EEVDF Rules
+        // vruntime and nice value will remain the same as before sleeping
+        // default timeslice (5000 milliticks)
+        p->timeslice = 5000;
+        // vdeadline and eligibility recalculated
+        p->vdeadline = p->vruntime + (5000 * (1024 / p->weight));
+        p->is_eligible = 1;
+
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -760,6 +917,16 @@ setnice(int pid, int value)
         {
             // return 0 (success)
             p->nice = value;
+            
+            // EEVDF Rules
+            
+            // Update weight based on nice value and weight table
+            p->weight = weight_table[p->nice];
+
+            // Calculate vdeadline
+            // vdeadline = vruntime + base time slice (5000 milliticks) * 1024 / weight
+            p->vdeadline = p->vruntime + (5000 * (1024 / p->weight));
+
             release(&p->lock);
             return 0;
         }
@@ -810,7 +977,7 @@ ps(int pid)
     }
     
     //list template
-    printf("name\tpid\tstate\t\tpriority\n");
+    printf("name\tpid\tstate\t\tpriority\truntime/weight\truntime\t\tvruntime\tvdeadline\tis_eligible\ttick %d\n", ticks * 1000);
 
     //print process info
     for(p = proc; p < &proc[NPROC]; p++)
@@ -823,7 +990,16 @@ ps(int pid)
                 release(&p->lock);
                 continue;
             }
-            printf("%s\t%d\t%s\t%d\n", p->name, p->pid, states[p->state], p->nice);
+            
+            // EEVDF Rules
+            //calculate runtime/weight (already in milliticks)
+            uint64 runtime_weight = p->runtime / p->weight;
+
+            // eligibility flag to string
+            char *eligible = p->is_eligible ? "true" : "false";
+
+            // print required fields
+            printf("%s\t%d\t%s\t%d\t\t%ld\t\t%ld\t\t%ld\t\t%ld\t\t%s\n", p->name, p->pid, states[p->state], p->nice, runtime_weight, p->runtime, p->vruntime, p->vdeadline, eligible);
         }
         release(&p->lock);
     }

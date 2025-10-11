@@ -93,6 +93,14 @@ struct proc {
   int pid;                     // Process ID
   int nice;                    // priority (nice value)
 
+  int weight;                  // weight value (derived from nice value)
+  int is_eligible;             // eligibility flag
+  int timeslice;               // task's minimum time to run before preemption
+  uint64 runtime;              // total runtime
+  uint64 vruntime;             // virtual runtime (how long a process has run proportional to its weight)
+  uint64 vdeadline;            // virtual deadline (earliest time by which a process should have received its due CPU time)
+
+
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
 
