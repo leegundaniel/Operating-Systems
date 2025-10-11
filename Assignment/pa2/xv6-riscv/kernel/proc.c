@@ -195,6 +195,12 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
   p->nice = 20;
+  p->weight = 1024;
+  p->is_eligible = 0;
+  p->timeslice = 5000;
+  p->runtime = 0;
+  p->vruntime = 0;
+  p->vdeadline = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -314,10 +320,11 @@ kfork(void)
   np->runtime = 0;  // runtime = 0
   np->timeslice = 5000;  // timeslice = 5000 milliticks
 
-  // vdeadline = vruntime + base timeslice (5000 milliticks) * (1024 / weight)
-  np->vdeadline = np->vruntime + (5000 * (1024 / np->weight));
+  // vdeadline = vruntime + base timeslice (5000 milliticks) * 1024 / weight
+  np->vdeadline = np->vruntime + ((uint64)5000 * (uint64)1024) / (uint64)np->weight;
   // eligibility set to 1
   np->is_eligible = 1;
+
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
@@ -510,7 +517,7 @@ scheduler(void)
     uint64 min_vdeadline = -1;
     uint64 min_vruntime = -1;
     // will be used to calculate eligibility
-    uint64 total_weight = 0;
+    int total_weight = 0;
     uint64 weighted_vruntime = 0;
 
     // for loop to find minimum vruntime and total weight of all runnable processes
@@ -544,7 +551,7 @@ scheduler(void)
             if(p->state == RUNNABLE)
             {
                 // weighted vruntime = (current process' vruntime - minimum vruntime) * current process' weight
-                weighted_vruntime += (p->vruntime - min_vruntime) * p->weight;
+                weighted_vruntime += (uint64)(p->vruntime - min_vruntime) * (uint64)p->weight;
             }
             release(&p->lock);
         }
@@ -559,7 +566,7 @@ scheduler(void)
             {
                 // set eligibility flag of runnable process
                 // weighted sum >= (current runtime - minimum runtime) * total weight
-                p->is_eligible = (weighted_vruntime >= (p->vruntime - min_vruntime) * total_weight);
+                p->is_eligible = (weighted_vruntime >= (uint64)(p->vruntime - min_vruntime) * (uint64)total_weight);
                 
 
                 // check if current process is eligible
@@ -732,8 +739,9 @@ wakeup(void *chan)
         // default timeslice (5000 milliticks)
         p->timeslice = 5000;
         // vdeadline and eligibility recalculated
-        p->vdeadline = p->vruntime + (5000 * (1024 / p->weight));
+        p->vdeadline = p->vruntime + ((uint64)5000 * (uint64)1024) / (uint64)p->weight;
         p->is_eligible = 1;
+        
 
         p->state = RUNNABLE;
       }
@@ -925,7 +933,7 @@ setnice(int pid, int value)
 
             // Calculate vdeadline
             // vdeadline = vruntime + base time slice (5000 milliticks) * 1024 / weight
-            p->vdeadline = p->vruntime + (5000 * (1024 / p->weight));
+            p->vdeadline = p->vruntime + ((uint64)5000 * (uint64)1024) / (uint64)p->weight;
 
             release(&p->lock);
             return 0;
@@ -992,8 +1000,9 @@ ps(int pid)
             }
             
             // EEVDF Rules
-            //calculate runtime/weight (already in milliticks)
-            uint64 runtime_weight = p->runtime / p->weight;
+            //calculate runtime/weight (change back to ticks)
+            uint64 runtime_weight = p->runtime / (uint64)1000;
+            runtime_weight /= p->weight;
 
             // eligibility flag to string
             char *eligible = p->is_eligible ? "true" : "false";

@@ -5,7 +5,9 @@
 
 int main()
 {
+/*
     int pid;
+
     printf("Testing getpname:\n");
     printf("1: ");
     getpname(1);
@@ -42,6 +44,7 @@ int main()
     {
         pause(5);
         printf("Parent process: (pid: %d)\n", (int)getpid());
+        ps(0);
         int wait = waitpid(pid);
         if(wait < 0)
         {
@@ -53,8 +56,22 @@ int main()
         }
         printf("waitpid value: %d\n", wait);
     }
-    
-    ps(0);
+   
     exit(0);
+*/
 
+  int pid = fork();
+  if (pid == 0) {
+    // Tight loop for a long time, force multiple timeslice expirations
+    for (int i = 0; i < 1000000000; i++) {
+      if (i % 200000000 == 0) {
+        printf("Child still running: i=%d\n", i);
+        ps(getpid());
+        }
+    }
+    printf("Child done\n");
+    exit(0);
+  }
+  wait(0);
+  exit(0);
 }

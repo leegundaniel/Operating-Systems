@@ -100,7 +100,7 @@ usertrap(void)
         // update vruntime using formula
         // vruntime += runtime * 1024 / weight
         // 1 runtime = 1000 milliticks
-        p->vruntime += 1000 * (1024 / p->weight);
+        p->vruntime += ((uint64)1000 * (uint64)1024) / p->weight;
     
         // if task runs more than given time slice
         // update vdeadline and enforce a yield
@@ -112,7 +112,7 @@ usertrap(void)
 
             // update vdeadline
             // vdeadline = vruntime + base time slice (5000 milliticks) * 1024 / weight
-            p->vdeadline = p->vruntime + (5000 * (1024 / p->weight));
+            p->vdeadline = p->vruntime + ((uint64)5000 * (uint64)1024) / p->weight;
             release(&p->lock);
             // enforce yield
             yield();
