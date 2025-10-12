@@ -884,10 +884,10 @@ waitpid(int pid)
             //check for zombie state
             if(p->state == ZOMBIE)
             {
-                release(&p->lock);
-                release(&wait_lock);
                 //free memory
                 freeproc(p);
+                release(&p->lock);
+                release(&wait_lock);
                 //return 0
                 return 0;
             }
