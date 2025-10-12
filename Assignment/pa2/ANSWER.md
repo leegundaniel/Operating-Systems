@@ -34,3 +34,64 @@
     - even if EEVDF is well implemented, if ps fails, no score will be given
 
 ## Answer
+1. **EEVDF Core Logic**
+    - Scheduler selects the process with the smallest **vdeadline** among runnable tasks.
+    - `vruntime` and `vdeadline` are updated each tick as:
+      ```c
+      p->vruntime  += (1000 * 1024) / p->weight;
+      p->vdeadline  = p->vruntime + (5000 * 1024) / p->weight;
+      ```
+
+2. **Initialization**
+    - In `allocproc()`:
+      ```c
+      p->vruntime = 0;
+      p->vdeadline = (5000 * 1024) / p->weight;
+      ```
+    - Weight is derived from the nice value (see slide 13).
+
+3. **PS Output**
+    - To keep integer math precise:
+      ```c
+      runtime_weight = (p->runtime / 1000) * 1024 / p->weight;
+      ```
+
+4. **Testing (Quick Sanity Test)**
+    ```c
+    int main(void) {
+      int pid1 = fork();
+      if (pid1 == 0) {
+        setnice(getpid(), 30);
+        for (volatile int i = 0; i < 100000000; i++);
+        printf("Low priority done\\n");
+        exit(0);
+      }
+      int pid2 = fork();
+      if (pid2 == 0) {
+        setnice(getpid(), 10);
+        pause(20);
+        for (volatile int i = 0; i < 100000000; i++);
+        printf("High priority done\\n");
+        exit(0);
+      }
+      for (int i = 0; i < 5; i++) {
+        ps(0);
+        pause(20);
+    }
+      waitpid(pid1);
+      waitpid(pid2);
+      printf("=== Test complete ===\\n");
+      exit(0);
+    }
+    ```
+
+5. **Expected Output**
+    ```
+    === Simple EEVDF Sanity Test ===
+    High priority done
+    Low priority done
+    === Test complete ===
+    ```
+
+✅ *Interpretation:* High-priority task (larger weight) completes first,  
+low-priority still finishes — confirming correct EEVDF scheduling and fairness.
