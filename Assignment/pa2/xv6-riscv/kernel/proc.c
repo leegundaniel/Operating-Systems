@@ -146,7 +146,7 @@ found:
   p->timeslice = 5000; // base slice is 5 ticks (5000 milliticks)
   p->runtime = 0;
   p->vruntime = 0;
-  p->vdeadline = 5000; // default virtual deadline = 5000 milliticks
+  p->vdeadline = ((uint64)5000 * 1024) / p->weight;
 
 
 
@@ -1000,8 +1000,8 @@ ps(int pid)
             }
             
             // EEVDF Rules
-            //calculate runtime/weight (change back to ticks)
-            uint64 runtime_weight = p->runtime / (uint64)1000;
+            //calculate runtime/weight
+            uint64 runtime_weight = (p->runtime / (uint64)1000) * (uint64)1024;
             runtime_weight /= p->weight;
 
             // eligibility flag to string
@@ -1069,10 +1069,10 @@ waitpid(int pid)
             //check for zombie state
             if(p->state == ZOMBIE)
             {
+                // free memory
+                freeproc(p);
                 release(&p->lock);
                 release(&wait_lock);
-                //free memory
-                freeproc(p);
                 //return 0
                 return 0;
             }

@@ -1,0 +1,439 @@
+user/usertests.c:426:// does chdir() call iput(p->cwd) in a transaction?
+user/usertests.c:448:// does exit() call iput(p->cwd) in a transaction?
+user/usertests.c:1033:// release" due to exit() releasing a different p->parent->lock than
+user/usertests.c:2490:    // would not adjust p->sz correctly in this case,
+user/usertests.c:2561:// does sbrk handle signed int32 wrap-around with
+user/usertests.c:2568:  *(top-1) = *(top-1) + 1;
+user/ls.c:14:  for(p=path+strlen(path); p >= path && *p != '/'; p--)
+user/umalloc.c:30:  for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
+user/umalloc.c:31:    if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
+user/umalloc.c:33:  if(bp + bp->s.size == p->s.ptr){
+user/umalloc.c:34:    bp->s.size += p->s.ptr->s.size;
+user/umalloc.c:35:    bp->s.ptr = p->s.ptr->s.ptr;
+user/umalloc.c:37:    bp->s.ptr = p->s.ptr;
+user/umalloc.c:38:  if(p + p->s.size == bp){
+user/umalloc.c:39:    p->s.size += bp->s.size;
+user/umalloc.c:40:    p->s.ptr = bp->s.ptr;
+user/umalloc.c:42:    p->s.ptr = bp;
+user/umalloc.c:58:  hp->s.size = nu;
+user/umalloc.c:74:  for(p = prevp->s.ptr; ; prevp = p, p = p->s.ptr){
+user/umalloc.c:75:    if(p->s.size >= nunits){
+user/umalloc.c:76:      if(p->s.size == nunits)
+user/umalloc.c:77:        prevp->s.ptr = p->s.ptr;
+user/umalloc.c:79:        p->s.size -= nunits;
+user/umalloc.c:80:        p += p->s.size;
+user/umalloc.c:81:        p->s.size = nunits;
+kernel/syscall.c:15:  if(addr >= p->sz || addr+sizeof(uint64) > p->sz) // both tests needed, in case of overflow
+kernel/syscall.c:17:  if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
+kernel/syscall.c:28:  if(copyinstr(p->pagetable, buf, addr, max) < 0)
+kernel/syscall.c:39:    return p->trapframe->a0;
+kernel/syscall.c:41:    return p->trapframe->a1;
+kernel/syscall.c:43:    return p->trapframe->a2;
+kernel/syscall.c:45:    return p->trapframe->a3;
+kernel/syscall.c:47:    return p->trapframe->a4;
+kernel/syscall.c:49:    return p->trapframe->a5;
+kernel/syscall.c:150:  num = p->trapframe->a7;
+kernel/syscall.c:153:    // and store its return value in p->trapframe->a0
+kernel/syscall.c:154:    p->trapframe->a0 = syscalls[num]();
+kernel/syscall.c:157:            p->pid, p->name, num);
+kernel/syscall.c:158:    p->trapframe->a0 = -1;
+kernel/proc.c:40:// memory model when using p->parent.
+kernel/proc.c:41:// must be acquired before any p->lock.
+kernel/proc.c:70:      initlock(&p->lock, "proc");
+kernel/proc.c:71:      p->state = UNUSED;
+kernel/proc.c:72:      p->kstack = KSTACK((int) (p - proc));
+kernel/proc.c:122:// and return with p->lock held.
+kernel/proc.c:130:    acquire(&p->lock);
+kernel/proc.c:131:    if(p->state == UNUSED) {
+kernel/proc.c:134:      release(&p->lock);
+kernel/proc.c:140:  p->pid = allocpid();
+kernel/proc.c:141:  p->state = USED;
+kernel/proc.c:142:  p->nice = 20; //default priority value
+kernel/proc.c:144:  p->weight = 1024;
+kernel/proc.c:145:  p->is_eligible = 0;
+kernel/proc.c:146:  p->timeslice = 5000; // base slice is 5 ticks (5000 milliticks)
+kernel/proc.c:147:  p->runtime = 0;
+kernel/proc.c:148:  p->vruntime = 0;
+kernel/proc.c:149:  p->vdeadline = 5000; // default virtual deadline = 5000 milliticks
+kernel/proc.c:154:  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+kernel/proc.c:156:    release(&p->lock);
+kernel/proc.c:161:  p->pagetable = proc_pagetable(p);
+kernel/proc.c:162:  if(p->pagetable == 0){
+kernel/proc.c:164:    release(&p->lock);
+kernel/proc.c:170:  memset(&p->context, 0, sizeof(p->context));
+kernel/proc.c:171:  p->context.ra = (uint64)forkret;
+kernel/proc.c:172:  p->context.sp = p->kstack + PGSIZE;
+kernel/proc.c:179:// p->lock must be held.
+kernel/proc.c:183:  if(p->trapframe)
+kernel/proc.c:184:    kfree((void*)p->trapframe);
+kernel/proc.c:185:  p->trapframe = 0;
+kernel/proc.c:186:  if(p->pagetable)
+kernel/proc.c:187:    proc_freepagetable(p->pagetable, p->sz);
+kernel/proc.c:188:  p->pagetable = 0;
+kernel/proc.c:189:  p->sz = 0;
+kernel/proc.c:190:  p->pid = 0;
+kernel/proc.c:191:  p->parent = 0;
+kernel/proc.c:192:  p->name[0] = 0;
+kernel/proc.c:193:  p->chan = 0;
+kernel/proc.c:194:  p->killed = 0;
+kernel/proc.c:195:  p->xstate = 0;
+kernel/proc.c:196:  p->state = UNUSED;
+kernel/proc.c:197:  p->nice = 20;
+kernel/proc.c:198:  p->weight = 1024;
+kernel/proc.c:199:  p->is_eligible = 0;
+kernel/proc.c:200:  p->timeslice = 5000;
+kernel/proc.c:201:  p->runtime = 0;
+kernel/proc.c:202:  p->vruntime = 0;
+kernel/proc.c:203:  p->vdeadline = 0;
+kernel/proc.c:231:              (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
+kernel/proc.c:259:  p->cwd = namei("/");
+kernel/proc.c:261:  p->state = RUNNABLE;
+kernel/proc.c:263:  release(&p->lock);
+kernel/proc.c:274:  sz = p->sz;
+kernel/proc.c:276:    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+kernel/proc.c:280:    sz = uvmdealloc(p->pagetable, sz, sz + n);
+kernel/proc.c:282:  p->sz = sz;
+kernel/proc.c:301:  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+kernel/proc.c:303:    release(&np->lock);
+kernel/proc.c:306:  np->sz = p->sz;
+kernel/proc.c:309:  *(np->trapframe) = *(p->trapframe);
+kernel/proc.c:315:  np->nice = p->nice;
+kernel/proc.c:316:  np->weight = p->weight;
+kernel/proc.c:317:  np->vruntime = p->vruntime;
+kernel/proc.c:320:  np->runtime = 0;  // runtime = 0
+kernel/proc.c:321:  np->timeslice = 5000;  // timeslice = 5000 milliticks
+kernel/proc.c:324:  np->vdeadline = np->vruntime + ((uint64)5000 * (uint64)1024) / (uint64)np->weight;
+kernel/proc.c:326:  np->is_eligible = 1;
+kernel/proc.c:330:  np->trapframe->a0 = 0;
+kernel/proc.c:334:    if(p->ofile[i])
+kernel/proc.c:335:      np->ofile[i] = filedup(p->ofile[i]);
+kernel/proc.c:336:  np->cwd = idup(p->cwd);
+kernel/proc.c:338:  safestrcpy(np->name, p->name, sizeof(p->name));
+kernel/proc.c:340:  pid = np->pid;
+kernel/proc.c:342:  release(&np->lock);
+kernel/proc.c:345:  np->parent = p;
+kernel/proc.c:348:  acquire(&np->lock);
+kernel/proc.c:349:  np->state = RUNNABLE;
+kernel/proc.c:350:  release(&np->lock);
+kernel/proc.c:363:    if(pp->parent == p){
+kernel/proc.c:364:      pp->parent = initproc;
+kernel/proc.c:383:    if(p->ofile[fd]){
+kernel/proc.c:384:      struct file *f = p->ofile[fd];
+kernel/proc.c:386:      p->ofile[fd] = 0;
+kernel/proc.c:391:  iput(p->cwd);
+kernel/proc.c:393:  p->cwd = 0;
+kernel/proc.c:401:  wakeup(p->parent);
+kernel/proc.c:403:  acquire(&p->lock);
+kernel/proc.c:405:  p->xstate = status;
+kernel/proc.c:406:  p->state = ZOMBIE;
+kernel/proc.c:429:      if(pp->parent == p){
+kernel/proc.c:431:        acquire(&pp->lock);
+kernel/proc.c:434:        if(pp->state == ZOMBIE){
+kernel/proc.c:436:          pid = pp->pid;
+kernel/proc.c:437:          if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
+kernel/proc.c:438:                                  sizeof(pp->xstate)) < 0) {
+kernel/proc.c:439:            release(&pp->lock);
+kernel/proc.c:444:          release(&pp->lock);
+kernel/proc.c:448:        release(&pp->lock);
+kernel/proc.c:489:      acquire(&p->lock);
+kernel/proc.c:490:      if(p->state == RUNNABLE) {
+kernel/proc.c:494:        p->state = RUNNING;
+kernel/proc.c:496:        swtch(&c->context, &p->context);
+kernel/proc.c:499:        // It should have changed its p->state before coming back.
+kernel/proc.c:503:      release(&p->lock);
+kernel/proc.c:526:        acquire(&p->lock);
+kernel/proc.c:528:        if(p->state == RUNNABLE)
+kernel/proc.c:531:            if(min_vruntime == -1 || p->vruntime < min_vruntime)
+kernel/proc.c:533:                min_vruntime = p->vruntime;
+kernel/proc.c:536:            total_weight += p->weight;
+kernel/proc.c:538:        release(&p->lock);
+kernel/proc.c:549:            acquire(&p->lock);
+kernel/proc.c:551:            if(p->state == RUNNABLE)
+kernel/proc.c:554:                weighted_vruntime += (uint64)(p->vruntime - min_vruntime) * (uint64)p->weight;
+kernel/proc.c:556:            release(&p->lock);
+kernel/proc.c:563:            acquire(&p->lock);
+kernel/proc.c:565:            if(p->state == RUNNABLE)
+kernel/proc.c:569:                p->is_eligible = (weighted_vruntime >= (uint64)(p->vruntime - min_vruntime) * (uint64)total_weight);
+kernel/proc.c:573:                if(p->is_eligible)
+kernel/proc.c:577:                    if(selected_p == 0 || p->vdeadline < min_vdeadline)
+kernel/proc.c:580:                        min_vdeadline = p->vdeadline;
+kernel/proc.c:588:                p->is_eligible = 0;
+kernel/proc.c:590:            release(&p->lock);
+kernel/proc.c:598:        acquire(&selected_p->lock);
+kernel/proc.c:599:        if(selected_p->state == RUNNABLE)
+kernel/proc.c:602:            selected_p->state = RUNNING;
+kernel/proc.c:604:            swtch(&c->context, &selected_p->context);
+kernel/proc.c:605:            // process is done running now, it should have changed its p->state before coming back
+kernel/proc.c:609:        release(&selected_p->lock);
+kernel/proc.c:619:// Switch to scheduler.  Must hold only p->lock
+kernel/proc.c:632:  if(!holding(&p->lock))
+kernel/proc.c:633:    panic("sched p->lock");
+kernel/proc.c:636:  if(p->state == RUNNING)
+kernel/proc.c:642:  swtch(&p->context, &mycpu()->context);
+kernel/proc.c:651:  acquire(&p->lock);
+kernel/proc.c:652:  p->state = RUNNABLE;
+kernel/proc.c:654:  release(&p->lock);
+kernel/proc.c:666:  // Still holding p->lock from scheduler.
+kernel/proc.c:667:  release(&p->lock);
+kernel/proc.c:681:    p->trapframe->a0 = kexec("/init", (char *[]){ "/init", 0 });
+kernel/proc.c:682:    if (p->trapframe->a0 == -1) {
+kernel/proc.c:689:  uint64 satp = MAKE_SATP(p->pagetable);
+kernel/proc.c:701:  // Must acquire p->lock in order to
+kernel/proc.c:702:  // change p->state and then call sched.
+kernel/proc.c:703:  // Once we hold p->lock, we can be
+kernel/proc.c:705:  // (wakeup locks p->lock),
+kernel/proc.c:708:  acquire(&p->lock);  //DOC: sleeplock1
+kernel/proc.c:712:  p->chan = chan;
+kernel/proc.c:713:  p->state = SLEEPING;
+kernel/proc.c:718:  p->chan = 0;
+kernel/proc.c:721:  release(&p->lock);
+kernel/proc.c:734:      acquire(&p->lock);
+kernel/proc.c:735:      if(p->state == SLEEPING && p->chan == chan) {
+kernel/proc.c:740:        p->timeslice = 5000;
+kernel/proc.c:742:        p->vdeadline = p->vruntime + ((uint64)5000 * (uint64)1024) / (uint64)p->weight;
+kernel/proc.c:743:        p->is_eligible = 1;
+kernel/proc.c:746:        p->state = RUNNABLE;
+kernel/proc.c:748:      release(&p->lock);
+kernel/proc.c:762:    acquire(&p->lock);
+kernel/proc.c:763:    if(p->pid == pid){
+kernel/proc.c:764:      p->killed = 1;
+kernel/proc.c:765:      if(p->state == SLEEPING){
+kernel/proc.c:767:        p->state = RUNNABLE;
+kernel/proc.c:769:      release(&p->lock);
+kernel/proc.c:772:    release(&p->lock);
+kernel/proc.c:780:  acquire(&p->lock);
+kernel/proc.c:781:  p->killed = 1;
+kernel/proc.c:782:  release(&p->lock);
+kernel/proc.c:790:  acquire(&p->lock);
+kernel/proc.c:791:  k = p->killed;
+kernel/proc.c:792:  release(&p->lock);
+kernel/proc.c:804:    return copyout(p->pagetable, dst, src, len);
+kernel/proc.c:819:    return copyin(p->pagetable, dst, src, len);
+kernel/proc.c:845:    if(p->state == UNUSED)
+kernel/proc.c:847:    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+kernel/proc.c:848:      state = states[p->state];
+kernel/proc.c:851:    printf("%d %s %s", p->pid, state, p->name);
+kernel/proc.c:866:        acquire(&p->lock);
+kernel/proc.c:869:        if(p->pid == pid)
+kernel/proc.c:871:            printf("%s\n", p->name);
+kernel/proc.c:872:            release(&p->lock);
+kernel/proc.c:875:        release(&p->lock);
+kernel/proc.c:892:        acquire(&p->lock);
+kernel/proc.c:893:        if(p->pid == pid)
+kernel/proc.c:895:            release(&p->lock);
+kernel/proc.c:896:            return p->nice;
+kernel/proc.c:898:        release(&p->lock);
+kernel/proc.c:922:        acquire(&p->lock); 
+kernel/proc.c:924:        if(p->pid == pid)
+kernel/proc.c:927:            p->nice = value;
+kernel/proc.c:932:            p->weight = weight_table[p->nice];
+kernel/proc.c:936:            p->vdeadline = p->vruntime + ((uint64)5000 * (uint64)1024) / (uint64)p->weight;
+kernel/proc.c:938:            release(&p->lock);
+kernel/proc.c:941:        release(&p->lock);
+kernel/proc.c:968:        acquire(&p->lock);
+kernel/proc.c:970:        if(p->pid == pid)
+kernel/proc.c:974:        release(&p->lock);
+kernel/proc.c:993:        acquire(&p->lock);
+kernel/proc.c:994:        if(pid == 0 || p->pid == pid)
+kernel/proc.c:996:            if(p->state == UNUSED)
+kernel/proc.c:998:                release(&p->lock);
+kernel/proc.c:1004:            uint64 runtime_weight = p->runtime / (uint64)1000;
+kernel/proc.c:1005:            runtime_weight /= p->weight;
+kernel/proc.c:1008:            char *eligible = p->is_eligible ? "true" : "false";
+kernel/proc.c:1011:            printf("%s\t%d\t%s\t%d\t\t%ld\t\t%ld\t\t%ld\t\t%ld\t\t%s\n", p->name, p->pid, states[p->state], p->nice, runtime_weight, p->runtime, p->vruntime, p->vdeadline, eligible);
+kernel/proc.c:1013:        release(&p->lock);
+kernel/proc.c:1050:            acquire(&p->lock);
+kernel/proc.c:1052:            if(p->pid != pid)
+kernel/proc.c:1054:                release(&p->lock);
+kernel/proc.c:1061:            if(p->parent != current_p)
+kernel/proc.c:1063:                release(&p->lock);
+kernel/proc.c:1070:            if(p->state == ZOMBIE)
+kernel/proc.c:1072:                release(&p->lock);
+kernel/proc.c:1079:            release(&p->lock);
+kernel/proc.c:1084:        if(!pid_found || current_p->killed)
+kernel/proc.h:88:  // p->lock must be held when using these:
+kernel/proc.h:107:  // these are private to the process, so p->lock need not be held.
+kernel/sysfile.c:46:    if(p->ofile[fd] == 0){
+kernel/sysfile.c:47:      p->ofile[fd] = f;
+kernel/sysfile.c:139:  if(ip->type == T_DIR){
+kernel/sysfile.c:145:  ip->nlink++;
+kernel/sysfile.c:152:  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
+kernel/sysfile.c:165:  ip->nlink--;
+kernel/sysfile.c:179:  for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
+kernel/sysfile.c:215:  if(ip->nlink < 1)
+kernel/sysfile.c:217:  if(ip->type == T_DIR && !isdirempty(ip)){
+kernel/sysfile.c:225:  if(ip->type == T_DIR){
+kernel/sysfile.c:226:    dp->nlink--;
+kernel/sysfile.c:231:  ip->nlink--;
+kernel/sysfile.c:259:    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+kernel/sysfile.c:265:  if((ip = ialloc(dp->dev, type)) == 0){
+kernel/sysfile.c:271:  ip->major = major;
+kernel/sysfile.c:272:  ip->minor = minor;
+kernel/sysfile.c:273:  ip->nlink = 1;
+kernel/sysfile.c:277:    // No ip->nlink++ for ".": avoid cyclic ref count.
+kernel/sysfile.c:278:    if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
+kernel/sysfile.c:282:  if(dirlink(dp, name, ip->inum) < 0)
+kernel/sysfile.c:287:    dp->nlink++;  // for ".."
+kernel/sysfile.c:297:  ip->nlink = 0;
+kernel/sysfile.c:331:    if(ip->type == T_DIR && omode != O_RDONLY){
+kernel/sysfile.c:338:  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
+kernel/sysfile.c:352:  if(ip->type == T_DEVICE){
+kernel/sysfile.c:354:    f->major = ip->major;
+kernel/sysfile.c:363:  if((omode & O_TRUNC) && ip->type == T_FILE){
+kernel/sysfile.c:422:  if(ip->type != T_DIR){
+kernel/sysfile.c:428:  iput(p->cwd);
+kernel/sysfile.c:430:  p->cwd = ip;
+kernel/sysfile.c:491:      p->ofile[fd0] = 0;
+kernel/sysfile.c:496:  if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
+kernel/sysfile.c:497:     copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
+kernel/sysfile.c:498:    p->ofile[fd0] = 0;
+kernel/sysfile.c:499:    p->ofile[fd1] = 0;
+kernel/log.c:212://   modify bp->data[]
+kernel/riscv.h:159:// Supervisor Trap-Vector Base Address
+kernel/memlayout.h:57://   TRAPFRAME (p->trapframe, used by the trampoline)
+kernel/trap.c:52:  p->trapframe->epc = r_sepc();
+kernel/trap.c:62:    p->trapframe->epc += 4;
+kernel/trap.c:72:            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
+kernel/trap.c:75:    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+kernel/trap.c:90:    if(p != 0 && p->state == RUNNING)
+kernel/trap.c:92:        acquire(&p->lock);
+kernel/trap.c:95:        p->runtime += 1000;
+kernel/trap.c:98:        p->timeslice -= 1000;
+kernel/trap.c:103:        p->vruntime += ((uint64)1000 * (uint64)1024) / p->weight;
+kernel/trap.c:107:        if(p->timeslice <= 0)
+kernel/trap.c:111:            p->timeslice = 5000;
+kernel/trap.c:115:            p->vdeadline = p->vruntime + ((uint64)5000 * (uint64)1024) / p->weight;
+kernel/trap.c:116:            release(&p->lock);
+kernel/trap.c:123:            release(&p->lock);
+kernel/trap.c:132:  uint64 satp = MAKE_SATP(p->pagetable);
+kernel/trap.c:157:  p->trapframe->kernel_satp = r_satp();         // kernel page table
+kernel/trap.c:158:  p->trapframe->kernel_sp = p->kstack + PGSIZE; // process's kernel stack
+kernel/trap.c:159:  p->trapframe->kernel_trap = (uint64)usertrap;
+kernel/trap.c:160:  p->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
+kernel/trap.c:172:  w_sepc(p->trapframe->epc);
+kernel/trampoline.S:34:        # each process has a separate p->trapframe memory area,
+kernel/trampoline.S:71:	# save the user a0 in p->trapframe->a0
+kernel/trampoline.S:75:        # initialize kernel stack pointer, from p->trapframe->kernel_sp
+kernel/trampoline.S:78:        # make tp hold the current hartid, from p->trapframe->kernel_hartid
+kernel/trampoline.S:81:        # load the address of usertrap(), from p->trapframe->kernel_trap
+kernel/trampoline.S:84:        # fetch the kernel page table address, from p->trapframe->kernel_satp.
+kernel/fs.c:36:  memmove(sb, bp->data, sizeof(*sb));
+kernel/fs.c:57:  memset(bp->data, 0, BSIZE);
+kernel/fs.c:77:      if((bp->data[bi/8] & m) == 0){  // Is block free?
+kernel/fs.c:78:        bp->data[bi/8] |= m;  // Mark block in use.
+kernel/fs.c:101:  if((bp->data[bi/8] & m) == 0)
+kernel/fs.c:103:  bp->data[bi/8] &= ~m;
+kernel/fs.c:123:// not stored on disk: ip->ref and ip->valid.
+kernel/fs.c:134://   is free if ip->ref is zero. Otherwise ip->ref tracks
+kernel/fs.c:141://   table entry is only correct when ip->valid is 1.
+kernel/fs.c:143://   the disk and sets ip->valid, while iput() clears
+kernel/fs.c:144://   ip->valid if ip->ref has fallen to zero.
+kernel/fs.c:153://   ... examine and modify ip->xxx ...
+kernel/fs.c:161:// pathname lookup. iget() increments ip->ref so that the inode
+kernel/fs.c:169:// entries. Since ip->ref indicates whether an entry is free,
+kernel/fs.c:170:// and ip->dev and ip->inum indicate which i-node an entry
+kernel/fs.c:173:// An ip->lock sleep-lock protects all ip-> fields other than ref,
+kernel/fs.c:174:// dev, and inum.  One must hold ip->lock in order to
+kernel/fs.c:175:// read or write that inode's ip->valid, ip->size, ip->type, &c.
+kernel/fs.c:208:    dip = (struct dinode*)bp->data + inum%IPB;
+kernel/fs.c:209:    if(dip->type == 0){  // a free inode
+kernel/fs.c:211:      dip->type = type;
+kernel/fs.c:223:// Must be called after every change to an ip->xxx field
+kernel/fs.c:225:// Caller must hold ip->lock.
+kernel/fs.c:232:  bp = bread(ip->dev, IBLOCK(ip->inum, sb));
+kernel/fs.c:233:  dip = (struct dinode*)bp->data + ip->inum%IPB;
+kernel/fs.c:234:  dip->type = ip->type;
+kernel/fs.c:235:  dip->major = ip->major;
+kernel/fs.c:236:  dip->minor = ip->minor;
+kernel/fs.c:237:  dip->nlink = ip->nlink;
+kernel/fs.c:238:  dip->size = ip->size;
+kernel/fs.c:239:  memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
+kernel/fs.c:257:    if(ip->ref > 0 && ip->dev == dev && ip->inum == inum){
+kernel/fs.c:258:      ip->ref++;
+kernel/fs.c:262:    if(empty == 0 && ip->ref == 0)    // Remember empty slot.
+kernel/fs.c:271:  ip->dev = dev;
+kernel/fs.c:272:  ip->inum = inum;
+kernel/fs.c:273:  ip->ref = 1;
+kernel/fs.c:274:  ip->valid = 0;
+kernel/fs.c:286:  ip->ref++;
+kernel/fs.c:299:  if(ip == 0 || ip->ref < 1)
+kernel/fs.c:302:  acquiresleep(&ip->lock);
+kernel/fs.c:304:  if(ip->valid == 0){
+kernel/fs.c:305:    bp = bread(ip->dev, IBLOCK(ip->inum, sb));
+kernel/fs.c:306:    dip = (struct dinode*)bp->data + ip->inum%IPB;
+kernel/fs.c:307:    ip->type = dip->type;
+kernel/fs.c:308:    ip->major = dip->major;
+kernel/fs.c:309:    ip->minor = dip->minor;
+kernel/fs.c:310:    ip->nlink = dip->nlink;
+kernel/fs.c:311:    ip->size = dip->size;
+kernel/fs.c:312:    memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
+kernel/fs.c:314:    ip->valid = 1;
+kernel/fs.c:315:    if(ip->type == 0)
+kernel/fs.c:324:  if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
+kernel/fs.c:327:  releasesleep(&ip->lock);
+kernel/fs.c:342:  if(ip->ref == 1 && ip->valid && ip->nlink == 0){
+kernel/fs.c:345:    // ip->ref == 1 means no other process can have ip locked,
+kernel/fs.c:347:    acquiresleep(&ip->lock);
+kernel/fs.c:352:    ip->type = 0;
+kernel/fs.c:354:    ip->valid = 0;
+kernel/fs.c:356:    releasesleep(&ip->lock);
+kernel/fs.c:361:  ip->ref--;
+kernel/fs.c:379:    struct dinode *dip = (struct dinode *)bp->data + inum % IPB;
+kernel/fs.c:380:    if (dip->type != 0 && dip->nlink == 0) {  // is an orphaned inode
+kernel/fs.c:399:// are listed in ip->addrs[].  The next NINDIRECT blocks are
+kernel/fs.c:400:// listed in block ip->addrs[NDIRECT].
+kernel/fs.c:412:    if((addr = ip->addrs[bn]) == 0){
+kernel/fs.c:413:      addr = balloc(ip->dev);
+kernel/fs.c:416:      ip->addrs[bn] = addr;
+kernel/fs.c:424:    if((addr = ip->addrs[NDIRECT]) == 0){
+kernel/fs.c:425:      addr = balloc(ip->dev);
+kernel/fs.c:428:      ip->addrs[NDIRECT] = addr;
+kernel/fs.c:430:    bp = bread(ip->dev, addr);
+kernel/fs.c:431:    a = (uint*)bp->data;
+kernel/fs.c:433:      addr = balloc(ip->dev);
+kernel/fs.c:447:// Caller must hold ip->lock.
+kernel/fs.c:456:    if(ip->addrs[i]){
+kernel/fs.c:457:      bfree(ip->dev, ip->addrs[i]);
+kernel/fs.c:458:      ip->addrs[i] = 0;
+kernel/fs.c:462:  if(ip->addrs[NDIRECT]){
+kernel/fs.c:463:    bp = bread(ip->dev, ip->addrs[NDIRECT]);
+kernel/fs.c:464:    a = (uint*)bp->data;
+kernel/fs.c:467:        bfree(ip->dev, a[j]);
+kernel/fs.c:470:    bfree(ip->dev, ip->addrs[NDIRECT]);
+kernel/fs.c:471:    ip->addrs[NDIRECT] = 0;
+kernel/fs.c:474:  ip->size = 0;
+kernel/fs.c:479:// Caller must hold ip->lock.
+kernel/fs.c:483:  st->dev = ip->dev;
+kernel/fs.c:484:  st->ino = ip->inum;
+kernel/fs.c:485:  st->type = ip->type;
+kernel/fs.c:486:  st->nlink = ip->nlink;
+kernel/fs.c:487:  st->size = ip->size;
+kernel/fs.c:491:// Caller must hold ip->lock.
+kernel/fs.c:500:  if(off > ip->size || off + n < off)
+kernel/fs.c:502:  if(off + n > ip->size)
+kernel/fs.c:503:    n = ip->size - off;
+kernel/fs.c:509:    bp = bread(ip->dev, addr);
+kernel/fs.c:511:    if(either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
+kernel/fs.c:522:// Caller must hold ip->lock.
+kernel/fs.c:534:  if(off > ip->size || off + n < off)
+kernel/fs.c:543:    bp = bread(ip->dev, addr);
+kernel/fs.c:545:    if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
+kernel/fs.c:553:  if(off > ip->size)
+kernel/fs.c:554:    ip->size = off;
+kernel/fs.c:558:  // block to ip->addrs[].
+kernel/fs.c:580:  if(dp->type != T_DIR)
+kernel/fs.c:583:  for(off = 0; off < dp->size; off += sizeof(de)){
+kernel/fs.c:593:      return iget(dp->dev, inum);
+kernel/fs.c:616:  for(off = 0; off < dp->size; off += sizeof(de)){
+kernel/fs.c:686:    if(ip->type != T_DIR){
+kernel/exec.c:82:  uint64 oldsz = p->sz;
+kernel/exec.c:122:  p->trapframe->a1 = sp;
+kernel/exec.c:128:  safestrcpy(p->name, last, sizeof(p->name));
+kernel/exec.c:131:  oldpagetable = p->pagetable;
+kernel/exec.c:132:  p->pagetable = pagetable;
+kernel/exec.c:133:  p->sz = sz;
+kernel/exec.c:134:  p->trapframe->epc = elf.entry;  // initial program counter = ulib.c:start()
+kernel/exec.c:135:  p->trapframe->sp = sp; // initial stack pointer
+kernel/vm.c:458:  if (va >= p->sz)
+kernel/vm.c:468:  if (mappages(p->pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0) {
+kernel/file.c:97:    if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)

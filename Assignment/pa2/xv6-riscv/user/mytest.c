@@ -5,7 +5,7 @@
 
 int main()
 {
-/*
+    /*
     int pid;
 
     printf("Testing getpname:\n");
@@ -58,20 +58,36 @@ int main()
     }
    
     exit(0);
-*/
+    */
 
-  int pid = fork();
-  if (pid == 0) {
-    // Tight loop for a long time, force multiple timeslice expirations
-    for (int i = 0; i < 1000000000; i++) {
-      if (i % 200000000 == 0) {
-        printf("Child still running: i=%d\n", i);
-        ps(getpid());
-        }
+    /* Project 2 Test */
+    int pid1 = fork();
+    if (pid1 == 0) {
+        setnice(getpid(), 30);    // low priority (small weight)
+        for (volatile int i = 0; i < 100000000; i++);
+        printf("Low priority done\n");
+        exit(0);
     }
-    printf("Child done\n");
+
+    int pid2 = fork();
+    if (pid2 == 0) {
+        setnice(getpid(), 10);    // high priority (large weight)
+        pause(20);
+        for (volatile int i = 0; i < 100000000; i++);
+        printf("High priority done\n");
+        exit(0);
+    }
+
+    for (int i = 0; i < 5; i++) {
+        ps(0);
+        pause(20);
+    }
+
+    waitpid(pid1);
+    waitpid(pid2);
+    ps(0);
+
+    printf("=== Test complete ===\n");
     exit(0);
-  }
-  wait(0);
-  exit(0);
 }
+
