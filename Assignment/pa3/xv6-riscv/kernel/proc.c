@@ -911,6 +911,7 @@ waitpid(int pid)
     }
 }
 
+// memory mapping
 uint64
 mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
 {
@@ -920,7 +921,13 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     char* mem = 0;
 
     printf("addr: %lld, len: %d, prot: %d, flags: %d, fd: %d, offset: %d; start_addr: %lld\n", addr, length, prot, flags, fd, offset, start_addr);
-    
+
+    // ensure values are page aligned
+    if((addr % PGSIZE) != 0 || (length % PGSIZE) != 0)
+    {
+        return 0;
+    }
+
     struct file* f = 0;
     // if file exists, get process' file
     if(fd != -1) 
@@ -952,29 +959,42 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
             return 0;
         }
     }
+    // 3. anonymous, but fd not -1
+    if(flags & MAP_ANONYMOUS)
+    {
+        printf("ERROR: MAP ANONYMOUS BUT FD EXISTS\n");
+        return 0;
+    }
     
     // find empty mmaps index
+    int full = -1;
     for(int i = 0; i < 64; i++)
     {
         // if found, update values
         if(ma[i].p == 0)
         {
-            if(f)
-            {
-                f = filedup(f);
-            }
-            
-            ma[i].f = f;
-            ma[i].addr = start_addr;
-            ma[i].length = length;
-            ma[i].offset = offset;
-            ma[i].prot = prot;
-            ma[i].flags = flags;
-            ma[i].p = p;
-     
+            full = i;
             break;
         }
     }
+    // mmaps full
+    if(full < 0)
+    {
+        return 0;
+    }
+
+    if(f)
+    {
+        f = filedup(f);
+    }
+
+    mmaps[full].f = f;
+    mmaps[full].addr = start_addr;
+    mmaps[full].length = length;
+    mmaps[full].offset = offset;
+    mmaps[full].prot = prot;
+    mmaps[full].flags = flags;
+    mmaps[full].p = p;
 
     // MAP POPULATE
     if(flags & MAP_POPULATE)
@@ -984,6 +1004,7 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
         if(!(flags & MAP_ANONYMOUS))
         {
             printf("MAP ANON & POP\n");
+            uint64 off = f->off;
             f->off = offset;
 
             for(uint64 ptr = start_addr; ptr < start_addr + length; ptr += PGSIZE)
@@ -1000,7 +1021,11 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 memset(mem, 0, PGSIZE);
                 fileread(f, mem, PGSIZE);
                 
-                if(mappages(p->pagetable, (void*)(ptr), PGSIZE, V2P(mem), prot | PTE_U) < 0)
+                int perm = PTE_U;
+                if(prot & PROT_READ) perm |= PTE_R;
+                if(prot & PROT_WRITE) perm |= PTE_W;
+                
+                if(mappages(p->pagetable, (void*)(ptr), PGSIZE, V2P(mem), perm) < 0)
                 {
                     return 0;
                 }
@@ -1021,7 +1046,11 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 printf("KALLOC SUCCESS\n");
 
                 memset(mem, 0, PGSIZE);
-                if(mappages(p->pagetable, (void*)(ptr), PGSIZE, V2P(mem), pro | PTE_U) < 0)
+
+                int perm = PTE_U;
+                if(prot & PROT_READ) perm |= PTE_R;
+                if(prot & PROT_WRITE) perm |= PTE_W;
+                if(mappages(p->pagetable, (void*)(ptr), PGSIZE, V2P(mem), perm) < 0)
                 {
                     return 0;
                 }
@@ -1032,9 +1061,45 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     return start_addr;
 }
 
+// memory unmapping
 int munmap(uint64 addr)
 {
-    return 0;
+    struct proc *p = myproc();
+    int index = -1;
+
+    for(int i = 0; i < 64; i++)
+    {
+        if(addr == ma[i].addr)
+        {
+            if(ma[i].p == p)
+            {
+                index = 1;
+                break;
+            }
+        }
+    }
+
+    if(index == -1)
+    {
+        return -1;
+    }
+
+    pte_t* pte;
+
+    for(uint64 ptr = addr; ptr < addr + ma[index].length; ptr += PGSIZE)
+    {
+        if((pte = walk(p->pagetable, (char*)(ptr), 0)) == 0)
+        {
+            continue;
+        }
+        if(!(*pte & PTE_V)) 
+        {
+            continue;
+        }
+        uint64 paddr = PTE_ADDR(*pte); 
+    }
+
+    return 1;
 }
 
 int
