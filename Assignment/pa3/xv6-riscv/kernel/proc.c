@@ -3,8 +3,11 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
 #include "proc.h"
 #include "defs.h"
+#include "file.h"
 
 #define MMAPBASE 0x40000000
 
@@ -12,16 +15,6 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
-struct file;
-struct mmap_area {
-    struct file *f;
-    uint64 addr;
-    int length;
-    int offset;
-    int prot;
-    int flags;
-    struct proc *p; // the process with this mmap_area
-};
 struct mmap_area mmaps[64];
 
 struct proc *initproc;
