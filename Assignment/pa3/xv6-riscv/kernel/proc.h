@@ -81,17 +81,6 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
-// memory map struct
-struct mmap_area {
-    struct file *f;
-    uint64 addr;
-    int length;
-    int offset;
-    int prot;
-    int flags;
-    struct proc *p; // the process with this mmap_area
-};
-
 
 // Per-process state
 struct proc {

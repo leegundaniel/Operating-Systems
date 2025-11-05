@@ -12,6 +12,16 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+struct file;
+struct mmap_area {
+    struct file *f;
+    uint64 addr;
+    int length;
+    int offset;
+    int prot;
+    int flags;
+    struct proc *p; // the process with this mmap_area
+};
 struct mmap_area mmaps[64];
 
 struct proc *initproc;
@@ -19,7 +29,7 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
-extern void fork/et(void);
+extern void forkret(void);
 static void freeproc(struct proc *p);
 extern int freepagespace(void); //int function to return number of free pages
 
@@ -60,6 +70,11 @@ procinit(void)
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
+  }
+  // initialize mmaps process
+  for(int i = 0; i < 64; i++)
+  {
+        mmaps[i].p = 0;
   }
 }
 
@@ -920,81 +935,74 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     uint64 start_addr = addr + MMAPBASE;
     char* mem = 0;
 
-    printf("addr: %lld, len: %d, prot: %d, flags: %d, fd: %d, offset: %d; start_addr: %lld\n", addr, length, prot, flags, fd, offset, start_addr);
+    printf("addr: %ld, len: %d, prot: %d, flags: %d, fd: %d, offset: %d; start_addr: %ld\n", addr, length, prot, flags, fd, offset, start_addr);
 
     // ensure values are page aligned
-    if((addr % PGSIZE) != 0 || (length % PGSIZE) != 0)
+    if((addr % PGSIZE) != 0 || (length % PGSIZE) != 0 || (start_addr % PGSIZE) != 0)
     {
         return 0;
     }
 
     struct file* f = 0;
-    // if file exists, get process' file
-    if(fd != -1) 
-    {
-        f = p->ofile[fd];
-    }
     
-    // Failed returns
-    // 1. if not anonymous and fd = -1
-    if(!(MAP_ANONYMOUS & flags) && (fd == -1))
+    // error if not anonymous and fd = -1
+    if(!(flags & MAP_ANONYMOUS) && (fd == -1))
     {
         printf("ERROR: Not anonymous, but fd == -1\n");
         return 0;
     }
-    // 2. Protection of file and the prot of parameter are different
+    // error if anonymous but fd and offset have values
+    if((flags & MAP_ANONYMOUS) && (fd != -1 || offset != 0))
+    {
+        printf("ERROR: ANONYMOUS, BUT HAVE VALUES\n");
+    }
+
+    // if fd exists read file
+    if(fd != -1)
+    {
+        f = p->ofile[fd];
+    }
+
+    // Protection of file and the prot of parameter are different
     if(f != 0)
     {
-        // 2a. read protection
+        // read protection error
         if(!(f->readable) && (prot & PROT_READ))
         {
             printf("ERROR: READ PROT\n");
             return 0;
         }
 
-        // 2b. write protection
+        // write protection error
         if(!(f->writable) && (prot & PROT_WRITE))
         {
             printf("ERROR: WRITE PROT\n");
             return 0;
         }
     }
-    // 3. anonymous, but fd not -1
-    if(flags & MAP_ANONYMOUS)
-    {
-        printf("ERROR: MAP ANONYMOUS BUT FD EXISTS\n");
-        return 0;
-    }
     
     // find empty mmaps index
-    int full = -1;
+    int idx = -1;
     for(int i = 0; i < 64; i++)
     {
-        // if found, update values
-        if(ma[i].p == 0)
+        // empty mmaps index found
+        if(mmaps[i].p == 0)
         {
-            full = i;
+            idx = i;
             break;
         }
     }
-    // mmaps full
-    if(full < 0)
+    // mmaps full error
+    if(idx < 0)
     {
         return 0;
     }
 
+    // increment ref count
     if(f)
     {
         f = filedup(f);
     }
-
-    mmaps[full].f = f;
-    mmaps[full].addr = start_addr;
-    mmaps[full].length = length;
-    mmaps[full].offset = offset;
-    mmaps[full].prot = prot;
-    mmaps[full].flags = flags;
-    mmaps[full].p = p;
 
     // MAP POPULATE
     if(flags & MAP_POPULATE)
@@ -1010,26 +1018,30 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
             for(uint64 ptr = start_addr; ptr < start_addr + length; ptr += PGSIZE)
             {
                 // kalloc, if mem = 0, kalloc failed
-                mem = kalloc();
-                if(mem == 0)
+                if((mem = kalloc()) == 0)
                 {
                     printf("KALLOC FAILED\n");
                     return 0;
                 }
                 printf("KALLOC SUCCESS\n");
-                
+                // set memory
                 memset(mem, 0, PGSIZE);
-                fileread(f, mem, PGSIZE);
                 
+                // page permission
                 int perm = PTE_U;
                 if(prot & PROT_READ) perm |= PTE_R;
                 if(prot & PROT_WRITE) perm |= PTE_W;
-                
-                if(mappages(p->pagetable, (void*)(ptr), PGSIZE, V2P(mem), perm) < 0)
+                // map VA to PA 
+                if(mappages(p->pagetable, ptr, PGSIZE, (uint64)mem, perm) < 0)
                 {
+                    // if error, free pages
+                    kfree(mem);
                     return 0;
                 }
+                // read from file
+                fileread(f, ptr, PGSIZE);
             }
+            f->off = off;
         }
         else if(flags & MAP_ANONYMOUS)
         {
@@ -1037,8 +1049,8 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
             
             for(uint64 ptr = start_addr; ptr < start_addr + length; ptr += PGSIZE)
             {
-                mem = kalloc();
-                if(mem == 0)
+                // kalloc, if mem = 0, kalloc failed
+                if((mem = kalloc()) == 0)
                 {
                     printf("KALLOC FAILED\n");
                     return 0;
@@ -1050,13 +1062,25 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 int perm = PTE_U;
                 if(prot & PROT_READ) perm |= PTE_R;
                 if(prot & PROT_WRITE) perm |= PTE_W;
-                if(mappages(p->pagetable, (void*)(ptr), PGSIZE, V2P(mem), perm) < 0)
+                // if map pages fails
+                if(mappages(p->pagetable, ptr, PGSIZE, (uint64)mem, perm) < 0)
                 {
+                    // free page memory
+                    kfree(mem);
                     return 0;
                 }
             }
         }
     }
+    
+    // mmaps value updates
+    mmaps[idx].f = f;
+    mmaps[idx].addr = start_addr;
+    mmaps[idx].length = length;
+    mmaps[idx].offset = offset;
+    mmaps[idx].prot = prot;
+    mmaps[idx].flags = flags;
+    mmaps[idx].p = p;
 
     return start_addr;
 }
@@ -1065,46 +1089,61 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
 int munmap(uint64 addr)
 {
     struct proc *p = myproc();
-    int index = -1;
+    int idx = -1;
 
+    // loop through mmaps array
     for(int i = 0; i < 64; i++)
     {
-        if(addr == ma[i].addr)
+        // check if addr exists in array
+        if(addr == mmaps[i].addr)
         {
-            if(ma[i].p == p)
+            // make sure index in array is currently valid
+            if(mmaps[i].p == p)
             {
-                index = 1;
+                // if valid, set the new index
+                idx = i;
                 break;
             }
         }
     }
-
-    if(index == -1)
+    // if entry in array not found, error
+    if(idx < 0)
     {
         return -1;
     }
 
-    pte_t* pte;
-
-    for(uint64 ptr = addr; ptr < addr + ma[index].length; ptr += PGSIZE)
+    // free mapped pages
+    for(uint64 ptr = addr; ptr < addr + mmaps[idx].length; ptr += PGSIZE)
     {
-        if((pte = walk(p->pagetable, (char*)(ptr), 0)) == 0)
+        // walk through pagetable for pages
+        pte_t *pte = walk(p->pagetable, ptr, 0);
+        // pte is valid
+        if(pte && (*pte & PTE_V))
         {
-            continue;
+            // retrieve physical address
+            uint64 pa = PTE2PA(*pte);
+            // free physical address
+            kfree((void*)pa);
+            // unmap
+            uvmunmap(p->pagetable, ptr, 1, 0);    
         }
-        if(!(*pte & PTE_V)) 
-        {
-            continue;
-        }
-        uint64 paddr = PTE_ADDR(*pte); 
     }
 
+    // close file if it exists
+    if(mmaps[idx].f)
+    {
+        fileclose(mmaps[idx].f);
+    }
+    // clear mmaps
+    memset(&mmaps[idx], 0, sizeof(mmaps[idx]));
+    // ensure p = 0
+    mmaps[idx].p = 0;
     return 1;
 }
 
 int
 freemem()
 {
-    return 1;
+    return freepagespace();
 
 }
