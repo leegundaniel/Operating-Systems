@@ -14,7 +14,7 @@
 int
 main(void)
 {
-  printf("== SIMPLE MMAP TESTS ==\n");
+  printf("== MMAP TESTS ==\n");
 
   int fm_start = freemem();
   printf("freemem start = %d\n", fm_start);
@@ -51,7 +51,7 @@ main(void)
   printf("freemem after file-mmap = %d\n", freemem());
 
   // offset
-  /*
+  /*  
   fd = open("README2", 0);
   if (fd < 0) { printf("open README2 failed\n"); exit(1); }
 
@@ -66,7 +66,7 @@ main(void)
   munmap((uint)f1);
   close(fd);
   printf("freemem after offset-mmap = %d\n", freemem());
-*/
+  */
   // fork
   fd = open("README", 0);
   if (fd < 0) { printf("open README failed\n"); exit(1); }
@@ -95,4 +95,3 @@ main(void)
 
   exit(0);
 }
-

@@ -324,16 +324,13 @@ kfork(void)
             mmaps[j].f = 0;
 
         // now checking for pages, ensuring to copy parent's pages
-        for(uint64 virtual = mmaps[i].addr; virtual < mmaps[i].addr + mmaps[i].length; virtual += PGSIZE) {
-            // walk through pte
-            pte_t *pte = walk(p->pagetable, virtual, 0);
-            if(pte == 0)
-                continue;
-            if((*pte & PTE_V) == 0)
-                continue;
-            
+        for(uint64 va = mmaps[i].addr; va < mmaps[i].addr + mmaps[i].length; va += PGSIZE) {
+            // check and ensure that page exists
+            if(!ismapped(p->pagetable, va)) continue;
+            // walk and retrieve pte
+            pte_t *pte = walk(p->pagetable, va, 0);
             // parent has a page mapped, then copy it
-            uint64 physical = PTE2PA(*pte);
+            uint64 pa = PTE2PA(*pte);
             char *page = kalloc();
             // if fail to alloc, release child
             if(page == 0) {
@@ -342,9 +339,9 @@ kfork(void)
                 return -1;
             }
             // copy parent's page to child
-            memmove(page, (char*)physical, PGSIZE);
+            memmove(page, (char*)pa, PGSIZE);
             // mappages of child process, exit if error occurs
-            if(mappages(np->pagetable, virtual, PGSIZE, (uint64)page, PTE_FLAGS(*pte)) < 0) {
+            if(mappages(np->pagetable, va, PGSIZE, (uint64)page, PTE_FLAGS(*pte)) < 0) {
                 kfree(page);
                 freeproc(np);
                 release(&np->lock);
@@ -425,17 +422,23 @@ kexit(int status)
     {
         // unmap any mapped pages
         for(uint64 va = mmaps[i].addr; va < mmaps[i].addr + mmaps[i].length; va += PGSIZE)
-        {   
-            pte_t *pte = walk(p->pagetable, va, 0);
-            if(pte && (*pte & PTE_V))
+        {  
+            // ensure page is mapped
+            if(ismapped(p->pagetable, va))
             {
+                // retrieve pte
+                pte_t *pte = walk(p->pagetable, va, 0);
+                // free physical address
                 uint64 pa = PTE2PA(*pte);
                 kfree((void*)pa);
+                // unmap page
                 uvmunmap(p->pagetable, va, 1, 0);
             }
         }
+        // delete file
         if(mmaps[i].f)
             fileclose(mmaps[i].f);
+        // reset index memory
         memset(&mmaps[i], 0, sizeof(mmaps[i]));
     }
   }
@@ -1106,21 +1109,15 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
             {
                 // save original offset, and store the offset currently required
                 int file_offset = offset + (va - start_addr);
-                /*
-                f->off = off;
-
-                // read file
-                fileread(f, (uint64)mem, PGSIZE);
-
-                // restore file offset
-                f->off = offset_store;
                 
-                off += PGSIZE;
-                */
+                // lock inode
                 ilock(f->ip);
-                int n = readi(f->ip, 0, (uint64)mem, file_offset, PGSIZE);
+                // read file
+                int fd = readi(f->ip, 0, (uint64)mem, file_offset, PGSIZE);
+                // unlock inode
                 iunlock(f->ip);
-                if(n < 0)
+                // if error in reading inode, free mem and return 0
+                if(fd < 0)
                 {
                     kfree(mem);
                     return 0;
@@ -1221,5 +1218,6 @@ int munmap(uint64 addr)
 int
 freemem()
 {
+    // return the number of free pages
     return freepagespace();
 }

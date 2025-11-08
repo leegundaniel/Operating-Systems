@@ -422,10 +422,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
-    {
-      if((pa0 = vmfault(pagetable, va0, 1)) == 0)
-        return -1;
-    }
+      return -1;
     n = PGSIZE - (srcva - va0);
     if(n > max)
       n = max;
@@ -506,26 +503,20 @@ page_fault_handler(struct proc *p, uint64 va, int write)
     {
         struct file *f = m->f;
         int offset = m->offset + (newva - m->addr);
-        /*
-        // temporarily switch file offset
-        int offset_store = f->off;
-        f->off = offset;
-        // read from file
-        fileread(f, (uint64)mem, PGSIZE);
-        // restore offset
-        f->off = offset_store;
-        */
+        
+        // lock file inode
         ilock(f->ip);
+        // read data from file inode
         int n = readi(f->ip, 0, (uint64)mem, offset, PGSIZE);
         iunlock(f->ip);
-
+        // if error in reading file, free mem and error
         if(n < 0)
         {
             kfree(mem);
             return -1;
         }
    }
-    
+    //permissions
     int perm = PTE_U;
     if(m->prot & PROT_READ) perm |= PTE_R;
     if(m->prot & PROT_WRITE) perm |= (PTE_R | PTE_W);
