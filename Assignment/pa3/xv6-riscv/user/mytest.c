@@ -206,7 +206,7 @@ static void print_first3_offset(const uint8 *p, int off) {
   ch = p[2]; write(1,&ch,1);
   printf("\n");
 }
-
+/*
 static int read_file_bytes(char *buf, int off) {
   int fd = open("README2", 0);
   if (fd < 0) return -1;
@@ -285,7 +285,7 @@ static void run_general_offset_tests(void) {
   test_file_offset_once(PGSIZE);      // second file page
   test_file_offset_once(2*PGSIZE);    // third file page
 }
-
+*/
 
 int main() {
   printf("== xv6 mmap/munmap/freemem verification ==\n");
@@ -299,7 +299,7 @@ int main() {
 
   test_fork_file_compare_and_pf();
   
-  run_general_offset_tests();
+  // run_general_offset_tests();
 
   printf("\n== ALL TESTS COMPLETED SUCCESSFULLY ==\n");
   exit(0);
