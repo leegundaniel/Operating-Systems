@@ -73,19 +73,38 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else if((r_scause() == 15 || r_scause() == 13)) {
-    // page fault on lazily-allocated page
+    
+    int success = 0;
+    // check for page fault
     for(int i = 0; i < 64; i++)
     {
+        // find current process in mmaps index
         if(mmaps[i].p == p)
         {
-            int pagefault = page_fault_handler(p, p->pagetable, r_stval(), (r_scause()==13)? 1: 0, &mmaps[i]);
-            if(pagefault < 0)
-                setkilled(p);
+            // check if address of page fault exists in process' address
+            uint64 va = r_stval();
+            if(va >= mmaps[i].addr && va < mmaps[i].addr + mmaps[i].length)
+            {
+                // it is page fault, trigger page fault handler
+                int pagefault = page_fault_handler(p, p->pagetable, va, (r_scause()==13)? 1: 0, &mmaps[i]);
+                // if page fault could not be fixed, kill process
+                if(pagefault < 0)
+                {
+                    setkilled(p);
+                    success = 1;
+                    break;
+                }
+            }
         }
     }
-
-    if(vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1:0) != 0) {
+    // if not page fault
+    if(!success)
+    {
+        if(vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1:0) == 0)
+        {
         // lazily-allocated page
+        setkilled(p);
+        }
     }
 
   } else {

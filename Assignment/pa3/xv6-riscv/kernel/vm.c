@@ -483,20 +483,14 @@ page_fault_handler(struct proc *p, pagetable_t pagetable, uint64 va, int read, s
             return -1;
         }
         
+        struct inode *ip = m->f->ip;
         // get page location
         uint64 page = (newva - m->addr) / PGSIZE;
         page = m->offset + page * PGSIZE;
         
-        // set offset
-        uint64 offset_store = f->off;
-        f->off = page;
-
         // read file
-        intr_on();
-        int fd = fileread(f, (uint64)mem, PGSIZE);
-        // restore original offset value
-        f->off = offset_store;
-        
+        int fd = readi_nolock(ip, (uint64)mem, page, PGSIZE);
+
         // if file reading failed, error
         if(fd < 0)
         {
