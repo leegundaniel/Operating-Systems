@@ -531,20 +531,6 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
-  // check if it is page fault / mmaps index exists
-  for (int i = 0; i < 64; i++)
-  {
-        if(mmaps[i].p == p)
-        {
-            // if page fault, use page fault handler
-            if(va >= mmaps[i].addr && va < mmaps[i].addr + mmaps[i].length)
-            {
-                return page_fault_handler(p, pagetable, va, read, &mmaps[i]);
-            }
-        }
-  }
-
-    
   // original vmfault code
   if (va >= p->sz)
     return 0;

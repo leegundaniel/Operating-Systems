@@ -14,7 +14,11 @@ extern char trampoline[], uservec[];
 // in kernelvec.S, calls kerneltrap().
 void kernelvec();
 
+extern struct mmap_area mmaps[64];
+
 extern int devintr();
+
+int page_fault_handler(struct proc *p, pagetable_t pagetable, uint64 va, int read, struct mmap_area *m);
 
 void
 trapinit(void)
@@ -70,12 +74,20 @@ usertrap(void)
     // ok
   } else if((r_scause() == 15 || r_scause() == 13)) {
     // page fault on lazily-allocated page
-    uint64 result = vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1: 0);
-    if(result == (uint64)-1)
+    for(int i = 0; i < 64; i++)
     {
-        // page fault handling failed, kill process
-        setkilled(p);
+        if(mmaps[i].p == p)
+        {
+            int pagefault = page_fault_handler(p, p->pagetable, r_stval(), (r_scause()==13)? 1: 0, &mmaps[i]);
+            if(pagefault < 0)
+                setkilled(p);
+        }
     }
+
+    if(vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1:0) != 0) {
+        // lazily-allocated page
+    }
+
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
