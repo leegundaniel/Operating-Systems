@@ -455,6 +455,105 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
+  uint64 newva = PGROUNDDOWN(va);
+
+  // mmap region handling
+  for (int i = 0; i < 64; i++)
+  {
+    // ignore others mmaps entries that are not the current process'
+    if(mmaps[i].p != p) continue;
+
+    // check if va is within current process' mmap range
+    if(va >= mmaps[i].addr && va < mmaps[i].addr + mmaps[i].length)
+    {
+        struct mmap_area *m = &mmaps[i];
+        
+        // Permission check
+        if(read)
+        {
+            if(!(m->prot & PROT_READ)
+            {
+                return -1;
+            }
+        }
+        else
+        {
+            if(!(m->prot * PROT_WRITE)) 
+            {
+                return -1;
+            }
+        }
+
+        // if already mapped return the page address
+        if(ismapped(pagetable, newva))
+        {
+            return walkaddr(pagetable, newva);
+        }
+        
+        // Allocate a physical page for the mmap fault
+        mem = (uint64) kalloc();
+        if(mem == 0)
+        {
+            return 0;
+        }
+        memset((void*) mem, 0, PGSIZE);
+
+        // mmap permissions
+        int perm = PTE_U;
+        if(m->prot & PROT_READ) perm |= PTE_R;
+        if(m->prot & PROT_WRITE) perm |= PTE_W;
+
+        // map page, free and exit if error
+        if(mappages(pagetable, newva, PGSIZE, mem, perm) < 0)
+        {
+            kfree((void*)mem);
+            return -1;
+        }
+
+        // if anonymous mapping, no need for file loading, return success
+        if(m->flags & MAP_ANONYMOUS)
+        {
+            return 1;
+        }
+
+        // now file mapping
+        struct file *f = m->f;
+
+        // just in case file does not exist, then free memory and return error 
+        if(f == 0)
+        {
+            uvmunmap(pagetable, newva, 1, 0);
+            kfree((void*)mem);
+            return -1;
+        }
+
+        // find file offset
+        uint64 file_offset = (newva - m->addr) / PGSIZE;
+        file_offset = m->offset = file_offset * PGSIZE;
+        
+        uint64 offset_store = f->off;
+        f->off = file_offset;
+
+        // Read file page
+        int fd = fileread(f, newva, PGSIZE);
+
+        // restore file offset
+        f-> off = offset_store;
+        // if file read fail, then free memory and return fail
+        if(fd < 0)
+        {
+            uvmunmap(pagetable, newva, 1, 0);
+            kfree((void*)mem);
+            return -1;
+
+        }
+
+        // mmap fault handled successfully
+        return 1;
+  }
+
+    
+  // original vmfault code
   if (va >= p->sz)
     return 0;
   va = PGROUNDDOWN(va);

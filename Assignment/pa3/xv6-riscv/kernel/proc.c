@@ -288,6 +288,71 @@ kfork(void)
   }
   np->sz = p->sz;
 
+  // duplicate mmap entries of parent
+  for(i = 0; i < 64; i++) {
+    // find mmaps that is the parent process
+    if(mmaps[i].p == p) {
+        // find empty space
+        int j, found = 0;
+        for(j = 0; j < 64; j++) {
+            // find an empty array index
+            if(mmaps[j].p == 0) {
+                found = 1;
+                break;
+            }
+        }
+        // if no index found, error: kill child
+        if(found == 0) {
+            freeproc(np);
+            release(&np->lock);
+            return -1;
+        }
+
+        // copy parent's info
+        mmap[j].p = np;
+        mmaps[j].addr = mmaps[i].addr;
+        mmaps[j].length = mmaps[i].length;
+        mmaps[j].prot = mmaps[i].prot;
+        mmaps[j].flags = mmaps[i].flags;
+        mmaps[j].offset = mmaps[i].offset;
+
+        // copy file if exists
+        if(mmaps[i].f)
+            mmaps[j].f = filedup(mmaps[i].f);
+        else
+            mmaps[j].f = 0;
+
+        // now checking for pages, ensuring to copy parent's pages
+        for(uint64 virtual = mmaps[i].addr; virtual < mmaps[i].addr + mmaps[i].length; virtual += PGSIZE) {
+            // walk through pte
+            pte_t *pte = walk(p->pagetable, virtual, 0);
+            if(pte == 0)
+                continue;
+            if((*pte & PTE_V) == 0)
+                continue;
+            
+            // parent has a page mapped, then copy it
+            uint64 physical = PTE2PA(*pte);
+            char *page = kalloc();
+            // if fail to alloc, release child
+            if(page == 0) {
+                freeproc(np);
+                release(&np->lock);
+                return -1;
+            }
+            // copy parent's page to child
+            memmove(page, (char*)physical, PGSIZE);
+            // mappages of child process, exit if error occurs
+            if(mappages(np->pagetable, virtual, PGSIZE, page, PTE_FLAGS(*pte)) < 0) {
+                kfree(page);
+                freeproc(np);
+                release(&np->lock);
+                return -1;
+            }
+        }
+    }
+  }
+
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -665,7 +730,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
   if(user_src){
     return copyin(p->pagetable, dst, src, len);
   } else {
-    memmove(dst, (char*)src, len);
+         memmove(dst, (char*)src, len);
     return 0;
   }
 }
@@ -975,18 +1040,19 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     }
     
     // find empty mmaps index
-    int idx = -1;
+    int idx, found = 0;
     for(int i = 0; i < 64; i++)
     {
         // empty mmaps index found
         if(mmaps[i].p == 0)
         {
             idx = i;
+            found = 1;
             break;
         }
     }
     // mmaps full error
-    if(idx < 0)
+    if(found == 0)
     {
         return 0;
     }
@@ -1082,7 +1148,13 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
 int munmap(uint64 addr)
 {
     struct proc *p = myproc();
-    int idx = -1;
+    int idx, found = 0;
+    
+    // return 0 if size is not page-aligned
+    if(addr % PGSIZE != 0)
+    {
+        return 0;
+    }
 
     // loop through mmaps array
     for(int i = 0; i < 64; i++)
@@ -1095,12 +1167,13 @@ int munmap(uint64 addr)
             {
                 // if valid, set the new index
                 idx = i;
+                found = 1;
                 break;
             }
         }
     }
     // if entry in array not found, error
-    if(idx < 0)
+    if(found == 0)
     {
         return -1;
     }
