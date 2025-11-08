@@ -522,7 +522,7 @@ page_fault_handler(struct proc *p, uint64 va, int write)
     
     int perm = PTE_U;
     if(m->prot & PROT_READ) perm |= PTE_R;
-    if(m->prot & PROT_WRITE) perm |= PTE_W;
+    if(m->prot & PROT_WRITE) perm |= (PTE_R | PTE_W);
     printf("HUH");
     // map pages, return -1 on error
     if(mappages(p->pagetable, newva, PGSIZE, (uint64)mem, perm) < 0)

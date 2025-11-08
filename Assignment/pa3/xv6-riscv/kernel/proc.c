@@ -1141,7 +1141,7 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
             // page permission
             int perm = PTE_U;
             if(prot & PROT_READ) perm |= PTE_R;
-            if(prot & PROT_WRITE) perm |= PTE_W;
+            if(prot & PROT_WRITE) perm |= (PTE_R | PTE_W);
             // map VA to PA 
             if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, perm) < 0)
             {

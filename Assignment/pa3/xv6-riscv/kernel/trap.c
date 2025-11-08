@@ -73,6 +73,7 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else if((r_scause() == 15 || r_scause() == 13)) {
+    printf("[PF] %ld, %ld", r_scause(), r_stval());
     uint64 va = r_stval();
     // page fault handler
     // kill process on error
