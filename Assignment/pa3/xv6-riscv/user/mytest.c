@@ -1,57 +1,31 @@
 #include "../kernel/types.h"
-#include "user.h"
 #include "../kernel/stat.h"
+#include "user.h"
+#include "../kernel/fcntl.h"
+#include "../kernel/memlayout.h"
+#include "../kernel/param.h"
+#include "../kernel/spinlock.h"
+#include "../kernel/sleeplock.h"
+#include "../kernel/fs.h"
+#include "../kernel/syscall.h"
 
 int main()
 {
-    int pid;
-    printf("Testing getpname:\n");
-    printf("1: ");
-    getpname(1);
+    printf("TEST1\n");
 
-    printf(">>>Testing getnice and setnice:\n");
-    printf("Initial nice value: %d\n", getnice(3));
-    setnice(3, 10);
-    printf("Nice value after setting: %d\n", getnice(3));
+    char *p = (char*) mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, -1, 0);
 
-    printf(">>>Testing ps:\n");
-    ps(0);
-    
-    printf(">>>Testing meminfo:\n");
-    printf("Available memory: %d bytes\n",meminfo());
-    
-    printf(">>>Testing waitpid:\n");
-    pid = fork();
-
-
-    //fork failed: exit
-    if(pid < 0)
+    if((long)p <= 0)
     {
-        printf("fork failed\n");
-        exit(1);
+        printf("FAILED\n");
+        return 0;
     }
-    //child
-    else if(pid == 0)
-    {
-        printf("Child process: (pid: %d)\n", (int)getpid());
-        exit(0);
-    }
-    //parent
+
+    strcpy(p, "hello mmap");
+    if(strcmp(p, "hello mmap") == 0)
+        printf("OK\n");
     else
-    {
-        pause(5);
-        printf("Parent process: (pid: %d)\n", (int)getpid());
-        int wait = waitpid(pid);
-        if(wait < 0)
-        {
-            printf("Error: Child termination unsuccessful\n");
-        }
-        else
-        {
-            printf("Child terminated successfully\n");
-        }
-        printf("waitpid value: %d\n", wait);
-    }
-    
-    exit(0);
+        printf("FAILED\n");
+        
+    return 0;
 }

@@ -309,7 +309,7 @@ kfork(void)
         }
 
         // copy parent's info
-        mmap[j].p = np;
+        mmaps[j].p = np;
         mmaps[j].addr = mmaps[i].addr;
         mmaps[j].length = mmaps[i].length;
         mmaps[j].prot = mmaps[i].prot;
@@ -343,7 +343,7 @@ kfork(void)
             // copy parent's page to child
             memmove(page, (char*)physical, PGSIZE);
             // mappages of child process, exit if error occurs
-            if(mappages(np->pagetable, virtual, PGSIZE, page, PTE_FLAGS(*pte)) < 0) {
+            if(mappages(np->pagetable, virtual, PGSIZE, (uint64)page, PTE_FLAGS(*pte)) < 0) {
                 kfree(page);
                 freeproc(np);
                 release(&np->lock);
@@ -1140,7 +1140,9 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     mmaps[idx].prot = prot;
     mmaps[idx].flags = flags;
     mmaps[idx].p = p;
-
+    
+    
+    printf("MMAP SUCCESS\n");
     return start_addr;
 }
 
@@ -1149,6 +1151,7 @@ int munmap(uint64 addr)
 {
     struct proc *p = myproc();
     int idx, found = 0;
+    printf("MUNMAP\n");
     
     // return 0 if size is not page-aligned
     if(addr % PGSIZE != 0)
@@ -1204,12 +1207,13 @@ int munmap(uint64 addr)
     memset(&mmaps[idx], 0, sizeof(mmaps[idx]));
     // ensure p = 0
     mmaps[idx].p = 0;
+    printf("MUNMAP SUCCESS\n");
     return 1;
 }
 
 int
 freemem()
 {
+    printf("freeMem\n");
     return freepagespace();
-
 }

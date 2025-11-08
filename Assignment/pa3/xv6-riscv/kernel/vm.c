@@ -5,8 +5,10 @@
 #include "riscv.h"
 #include "defs.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "fs.h"
+#include "file.h"
 
 /*
  * the kernel's page table.
@@ -16,6 +18,10 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+
+struct file;
+
+extern struct mmap_area mmaps[64];
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -471,14 +477,14 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
         // Permission check
         if(read)
         {
-            if(!(m->prot & PROT_READ)
+            if(!(m->prot & PROT_READ))
             {
                 return -1;
             }
         }
         else
         {
-            if(!(m->prot * PROT_WRITE)) 
+            if(!(m->prot & PROT_WRITE)) 
             {
                 return -1;
             }
@@ -538,7 +544,7 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
         int fd = fileread(f, newva, PGSIZE);
 
         // restore file offset
-        f-> off = offset_store;
+        f->off = offset_store;
         // if file read fail, then free memory and return fail
         if(fd < 0)
         {
@@ -551,6 +557,7 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
         // mmap fault handled successfully
         return 1;
   }
+ }
 
     
   // original vmfault code
