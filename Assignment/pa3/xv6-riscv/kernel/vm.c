@@ -422,7 +422,10 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
-      return -1;
+    {
+      if((pa0 = vmfault(pagetable, va0, 1)) == 0)
+        return -1;
+    }
     n = PGSIZE - (srcva - va0);
     if(n > max)
       n = max;
@@ -502,6 +505,7 @@ page_fault_handler(struct proc *p, uint64 va, int write)
     if(!(m->flags & MAP_ANONYMOUS) && m->f)
     {
         struct file *f = m->f;
+        filedup(f);
         int offset = m->offset + (newva - m->addr);
 
         // temporarily switch file offset
