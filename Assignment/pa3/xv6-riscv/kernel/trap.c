@@ -76,12 +76,10 @@ usertrap(void)
     uint64 va = r_stval();
     // page fault handler
     // kill process on error
-    if(page_fault_handler(p, va, (r_scause() == 15)? 1:0) == -1)
+    if(page_fault_handler(p, va, (r_scause() == 15)? 1:0) == 1)
     {
-        setkilled(p);
     }
-
-    if(vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1:0) == 0)
+    else if(vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1:0) == 0)
     {
         // lazily-allocated page
         setkilled(p);

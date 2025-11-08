@@ -24,7 +24,7 @@ int main()
 
     char *p = (char*)addr;
     printf("FIRST BYTE: %c\n", p[0]);
-    printf("string: %.10s\n", p);
+    printf("SECOND: %c\n", p[1]);
 
     printf("OK\n");
 
