@@ -1024,9 +1024,15 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     char* mem = 0;
 
     printf("addr: %ld, len: %d, prot: %d, flags: %d, fd: %d, offset: %d; start_addr: %ld\n", addr, length, prot, flags, fd, offset, start_addr);
-
+    
+    // ensure length is page aligned
+    if(length <= 0 || (length % PGSIZE) != 0)
+    {
+        return 0;
+    }
+    
     // ensure values are page aligned
-    if((addr % PGSIZE) != 0 || (length % PGSIZE) != 0 || (start_addr % PGSIZE) != 0)
+    if((addr % PGSIZE) != 0 || (start_addr % PGSIZE) != 0)
     {
         return 0;
     }
@@ -1098,40 +1104,53 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     {
         // MAP POPULATE & NOT MAP ANONYMOUS
         // File mapping
-        if(!(flags & MAP_ANONYMOUS))
+        /*if(!(flags & MAP_ANONYMOUS))
         {
             printf("MAP ANON & POP\n");
-            uint64 off = f->off;
-            f->off = offset;
-
-            for(uint64 ptr = start_addr; ptr < start_addr + length; ptr += PGSIZE)
+          */
+        int off = offset;
+        
+        for(uint64 va = start_addr; va < start_addr + length; va += PGSIZE)
+        {
+            // kalloc, if mem = 0, kalloc failed
+            if((mem = kalloc()) == 0)
             {
-                // kalloc, if mem = 0, kalloc failed
-                if((mem = kalloc()) == 0)
-                {
-                    printf("KALLOC FAILED\n");
-                    return 0;
-                }
-                printf("KALLOC SUCCESS\n");
-                // set memory
-                memset(mem, 0, PGSIZE);
-                
-                // page permission
-                int perm = PTE_U;
-                if(prot & PROT_READ) perm |= PTE_R;
-                if(prot & PROT_WRITE) perm |= PTE_W;
-                // map VA to PA 
-                if(mappages(p->pagetable, ptr, PGSIZE, (uint64)mem, perm) < 0)
-                {
-                    // if error, free pages
-                    kfree(mem);
-                    return 0;
-                }
-                // read from file
-                fileread(f, ptr, PGSIZE);
+                printf("KALLOC FAILED\n");
+                return 0;
             }
-            f->off = off;
+            printf("KALLOC SUCCESS\n");
+            // set memory
+            memset(mem, 0, PGSIZE);
+               
+            // file mapping
+            if(!(flags & MAP_ANONYMOUS))
+            {
+                // save original offset, and store the offset currently required
+                int offset_store = f->off;
+                f->off = off;
+
+                // read file
+                fileread(f, (uint64)mem, PGSIZE);
+
+                // restore file offset
+                f->off = offset_store;
+                
+                off += PGSIZE;
+            }
+
+            // page permission
+            int perm = PTE_U;
+            if(prot & PROT_READ) perm |= PTE_R;
+            if(prot & PROT_WRITE) perm |= PTE_W;
+            // map VA to PA 
+            if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, perm) < 0)
+            {
+                // if error, free pages
+                kfree(mem);
+                return 0;
+            }
         }
+        /*
         else if(flags & MAP_ANONYMOUS)
         {
             printf("MAP POP ONLY\n");
@@ -1160,6 +1179,7 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 }
             }
         }
+        */
     }
     
     // mmaps value updates

@@ -456,57 +456,56 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 // attempt to create physical pages and ptes
 // 1 on success, -1 on fail
 int
-page_fault_handler(struct proc *p, pagetable_t pagetable, uint64 va, int read, struct mmap_area *m)
+page_fault_handler(struct proc *p, uint64 va, int write)
 {
-    uint64 newva = PGROUNDDOWN(va);
+    // find mmap index
+    struct mmap_area *m = 0;
+    char* mem = 0;
+    printf("OVER HERE");    
+    for(int i = 0; i < 64; i++)
+    {
+        // find current process in mmaps array
+        if(mmaps[i].p == p)
+        {
+            // check if the current va is within the current process' address length
+            if(va >= mmaps[i].addr && va < mmaps[i].addr + mmaps[i].length)
+            {
+                m = &mmaps[i];
+                break;
+            }
+        }
+    }
 
-    char *mem = kalloc();
-    if(mem == 0)
+    // could not find mmap index, error
+    if(!m)
+    {
+        return -1;
+    }
+    // check for permissions (Write)
+    if(write && !(m->prot &  PROT_WRITE))
     {
         return -1;
     }
 
-    // anonymous file
-    if(m->flags & MAP_ANONYMOUS)
-    {
-        memset(mem, 0, PGSIZE);
-    }
-    // file mapping
-    else
-    {
-        struct file *f = m->f;
-        // if file doesn't exist, error
-        if(f == 0)
-        {
-            kfree(mem);
-            uvmunmap(pagetable, newva, 1, 0);
-            return -1;
-        }
-        
-        struct inode *ip = m->f->ip;
-        // get page location
-        uint64 page = (newva - m->addr) / PGSIZE;
-        page = m->offset + page * PGSIZE;
-        
-        // read file
-        int fd = readi_nolock(ip, (uint64)mem, page, PGSIZE);
+    // round down
+    uint64 newva = PGROUNDDOWN(va);
 
-        // if file reading failed, error
-        if(fd < 0)
-        {
-            kfree(mem);
-            return -1;
-        }
+    // allocate physical page
+    if((mem = kalloc()) == 0)
+    {
+        return -1;
     }
-
+    // set memory
+    memset(mem, 0, PGSIZE);
+    
     int perm = PTE_U;
     if(m->prot & PROT_READ) perm |= PTE_R;
     if(m->prot & PROT_WRITE) perm |= PTE_W;
-    // mappages, if fail, error
-    if(mappages(pagetable, newva, PGSIZE, (uint64)mem, perm) < 0)
+
+    // map pages, return -1 on error
+    if(mappages(p->pagetable, newva, PGSIZE, (uint64)mem, perm) < 0)
     {
         kfree(mem);
-        uvmunmap(pagetable, newva, 1, 0);
         return -1;
     }
 

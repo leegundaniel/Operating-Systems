@@ -443,36 +443,6 @@ bmap(struct inode *ip, uint bn)
   panic("bmap: out of range");
 }
 
-// works the same as bmap,
-// except used for page-fault handler (no locks)
-static uint
-bmap_nolock(struct inode *ip, uint bn)
-{
-    uint addr, *a;
-    struct buf *bp;
-
-    if(bn < NDIRECT){
-        addr = ip->addrs[bn];
-        return addr;
-    }
-
-    bn -= NDIRECT;
-    
-    if(bn < NDIRECT){
-       uint indirect = ip->addrs[NDIRECT];
-       if(indirect == 0)
-            return 0;
-
-        bp = bread(ip->dev, indirect);
-        a = (uint*)bp->data;
-        addr = a[bn];
-        brelse(bp);
-        return addr;
-    }
-
-    return 0;
-}
-
 // Truncate inode (discard contents).
 // Caller must hold ip->lock.
 void
@@ -546,28 +516,6 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
     brelse(bp);
   }
   return tot;
-}
-
-// same as readi, but without any lock
-// used for page fault handler
-int
-readi_nolock(struct inode *ip, uint64 dst, uint off, uint n)
-{
-    uint tot, m;
-    struct buf *bp;
-
-    for(tot = 0; tot < n; tot += m)
-    {
-        uint addr = bmap_nolock(ip, off/BSIZE);
-        if(addr == 0)
-            break;
-        bp = bread(ip->dev, addr);
-        m = min(n - tot, BSIZE - off%BSIZE);
-        memmove((void*)(dst + tot), bp->data + (off%BSIZE), m);
-        brelse(bp);
-        off += m;
-    }
-    return tot;
 }
 
 // Write data to inode.
