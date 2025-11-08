@@ -541,6 +541,7 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
         f->off = file_offset;
 
         // Read file page
+        intr_on();
         int fd = fileread(f, newva, PGSIZE);
 
         // restore file offset

@@ -11,21 +11,22 @@
 
 int main()
 {
-    printf("TEST1\n");
+    printf("TEST 3\n");
+    
+    int fd = open("README", O_RDONLY);
 
-    char *p = (char*) mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, -1, 0);
-
-    if((long)p <= 0)
-    {
-        printf("FAILED\n");
-        return 0;
+    if(fd < 0){
+        printf("CANT OPEN\n");
+        exit(1);
     }
 
-    strcpy(p, "hello mmap");
-    if(strcmp(p, "hello mmap") == 0)
-        printf("OK\n");
-    else
-        printf("FAILED\n");
-        
+    uint64 addr = mmap(0, 4096, PROT_READ, 0, fd, 0);
+
+    char *p = (char*)addr;
+    printf("FIRST BYTE: %c\n", p[0]);
+    printf("string: %.10s\n", p);
+
+    printf("OK\n");
+
     return 0;
 }

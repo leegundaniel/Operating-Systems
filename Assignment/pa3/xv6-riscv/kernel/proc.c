@@ -172,6 +172,36 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  
+  // unmap mmap region
+  for(int i = 0; i < 64; i++)
+  {
+    if(mmaps[i].p == p)
+    {
+        // free each mapped pages
+        for(uint64 ptr = mmaps[i].addr; ptr < mmaps[i].addr + mmaps[i].length; ptr += PGSIZE)
+        {
+            // find PTE
+            pte_t *pte = walk(p->pagetable, ptr, 0);
+            if(pte && (*pte & PTE_V))
+            {
+                // free the physical addresses
+                uint64 pa = PTE2PA(*pte);
+                kfree((void*)pa);
+                uvmunmap(p->pagetable, ptr, 1, 0);
+            }
+        }
+
+        // close file
+        if(mmaps[i].f)
+        {
+            fileclose(mmaps[i].f);
+        }
+        // clear mmaps index
+        memset(&mmaps[i], 0, sizeof(mmaps[i]));
+    }
+  }
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -1098,6 +1128,7 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                     return 0;
                 }
                 // read from file
+                intr_on();
                 fileread(f, ptr, PGSIZE);
             }
             f->off = off;
