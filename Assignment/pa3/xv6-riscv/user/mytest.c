@@ -28,7 +28,7 @@ static uint64 checksum(const uint8 *p, int n) {
 
 static void print_first3(const uint8 *base) {
   char ch;
-  ch = base[0]; printf(" - fd data: %x %x %x\n", base[0], base[1], base[2]); write(1,&ch,1);
+  ch = base[0]; printf(" - fd data: %c %c %c\n", base[0], base[1], base[2]); write(1,&ch,1);
   ch = base[1]; write(1,&ch,1);
   ch = base[2]; write(1,&ch,1);
   printf("\n");
@@ -193,6 +193,100 @@ static void test_fork_file_compare_and_pf(void) {
   freemem_tag("after fork test");
 }
 
+// =====================================================
+//  OPTIONAL: GENERAL OFFSET TESTS (for robustness)
+// =====================================================
+
+// Print first 3 bytes (offset version)
+static void print_first3_offset(const uint8 *p, int off) {
+  char ch;
+  printf("   [offset %d] ", off);
+  ch = p[0]; write(1,&ch,1);
+  ch = p[1]; write(1,&ch,1);
+  ch = p[2]; write(1,&ch,1);
+  printf("\n");
+}
+
+static int read_file_bytes(char *buf, int off) {
+  int fd = open("README2", 0);
+  if (fd < 0) return -1;
+
+  char trash[512];
+  int skipped = 0;
+
+  // Consume exactly 'off' bytes, no more, no less
+  while (skipped < off) {
+    int need = off - skipped;
+    int chunk = (need > sizeof(trash)) ? sizeof(trash) : need;
+    int r = read(fd, trash, chunk);
+
+    if (r <= 0) { 
+      close(fd);
+      // We've hit EOF before offset → all bytes beyond EOF = 0
+      return 0; 
+    }
+    skipped += r;
+  }
+
+  // Now read the 3 actual bytes we want
+  int got = read(fd, buf, 3);
+  if (got < 0) got = 0;
+
+  // Any bytes beyond EOF should be treated as 0
+  for (int i = got; i < 3; i++)
+    buf[i] = 0;
+
+  close(fd);
+  return got;
+}
+
+static void test_file_offset_once(int offset) {
+  printf("\n=== Offset Test: offset=%d ===\n", offset);
+
+  int fd = open("README2", 0);
+  expect(fd >= 0, "opened README for offset test");
+
+  int len = PGSIZE;          // map one page
+  uint addr = 6*PGSIZE + offset;   // ensure page-aligned VA
+
+  uint64 r = mmap(addr, len, 0x1, 0, fd, offset);
+  expect(r != 0, "file offset mmap ok");
+
+  volatile uint8 a = ((uint8*)r)[0];   // triggers PF
+  (void)a;
+
+  // Show mapped content
+  print_first3_offset((const uint8*)r, offset);
+
+  // Compare against direct read()
+  char buf[3], mapbuf[3];
+  read_file_bytes(buf, offset);
+  mapbuf[0] = ((uint8*)r)[0];
+  mapbuf[1] = ((uint8*)r)[1];
+  mapbuf[2] = ((uint8*)r)[2];
+
+  expect(mapbuf[0] == buf[0] &&
+         mapbuf[1] == buf[1] &&
+         mapbuf[2] == buf[2],
+         "offset mapping matches direct file read");
+
+  expect(munmap((uint)r) == 1, "unmap offset mapping ok");
+  close(fd);
+
+  printf("[OK] offset %d test complete\n", offset);
+}
+
+static void run_general_offset_tests(void) {
+  printf("\n===============================\n");
+  printf("   GENERAL OFFSET TESTS\n");
+  printf("===============================\n");
+
+  test_file_offset_once(0);           // baseline
+  test_file_offset_once(PGSIZE);      // second file page
+  test_file_offset_once(2*PGSIZE);    // third file page
+}
+
+
 int main() {
   printf("== xv6 mmap/munmap/freemem verification ==\n");
   freemem_tag("start");
@@ -204,6 +298,8 @@ int main() {
   test_file_no_populate_compare(sum_pop);
 
   test_fork_file_compare_and_pf();
+  
+  run_general_offset_tests();
 
   printf("\n== ALL TESTS COMPLETED SUCCESSFULLY ==\n");
   exit(0);

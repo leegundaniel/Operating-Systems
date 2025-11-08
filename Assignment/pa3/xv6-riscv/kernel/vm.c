@@ -505,9 +505,8 @@ page_fault_handler(struct proc *p, uint64 va, int write)
     if(!(m->flags & MAP_ANONYMOUS) && m->f)
     {
         struct file *f = m->f;
-        filedup(f);
         int offset = m->offset + (newva - m->addr);
-
+        /*
         // temporarily switch file offset
         int offset_store = f->off;
         f->off = offset;
@@ -515,7 +514,17 @@ page_fault_handler(struct proc *p, uint64 va, int write)
         fileread(f, (uint64)mem, PGSIZE);
         // restore offset
         f->off = offset_store;
-    }
+        */
+        ilock(f->ip);
+        int n = readi(f->ip, 0, (uint64)mem, offset, PGSIZE);
+        iunlock(f->ip);
+
+        if(n < 0)
+        {
+            kfree(mem);
+            return -1;
+        }
+   }
     
     int perm = PTE_U;
     if(m->prot & PROT_READ) perm |= PTE_R;

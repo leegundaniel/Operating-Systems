@@ -1090,8 +1090,6 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     // MAP POPULATE
     if(flags & MAP_POPULATE)
     {
-        int off = offset;
-        
         // for loop to map pages
         for(uint64 va = start_addr; va < start_addr + length; va += PGSIZE)
         {
@@ -1104,10 +1102,11 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
             memset(mem, 0, PGSIZE);
                
             // file mapping
-            if(!(flags & MAP_ANONYMOUS))
+            if(!(flags & MAP_ANONYMOUS) && f)
             {
                 // save original offset, and store the offset currently required
-                int offset_store = f->off;
+                int file_offset = offset + (va - start_addr);
+                /*
                 f->off = off;
 
                 // read file
@@ -1117,7 +1116,15 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 f->off = offset_store;
                 
                 off += PGSIZE;
-                
+                */
+                ilock(f->ip);
+                int n = readi(f->ip, 0, (uint64)mem, file_offset, PGSIZE);
+                iunlock(f->ip);
+                if(n < 0)
+                {
+                    kfree(mem);
+                    return 0;
+                }
             }
 
             // page permission
