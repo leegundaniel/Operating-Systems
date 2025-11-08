@@ -1022,8 +1022,6 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     struct proc *p = myproc();
     uint64 start_addr = addr + MMAPBASE;
     char* mem = 0;
-
-    printf("addr: %ld, len: %d, prot: %d, flags: %d, fd: %d, offset: %d; start_addr: %ld\n", addr, length, prot, flags, fd, offset, start_addr);
     
     // ensure length is page aligned
     if(length <= 0 || (length % PGSIZE) != 0)
@@ -1102,14 +1100,9 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
     // MAP POPULATE
     if(flags & MAP_POPULATE)
     {
-        // MAP POPULATE & NOT MAP ANONYMOUS
-        // File mapping
-        /*if(!(flags & MAP_ANONYMOUS))
-        {
-            printf("MAP ANON & POP\n");
-          */
         int off = offset;
         
+        // for loop to map pages
         for(uint64 va = start_addr; va < start_addr + length; va += PGSIZE)
         {
             // kalloc, if mem = 0, kalloc failed
@@ -1136,6 +1129,7 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 f->off = offset_store;
                 
                 off += PGSIZE;
+                
             }
 
             // page permission
@@ -1150,36 +1144,6 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                 return 0;
             }
         }
-        /*
-        else if(flags & MAP_ANONYMOUS)
-        {
-            printf("MAP POP ONLY\n");
-            
-            for(uint64 ptr = start_addr; ptr < start_addr + length; ptr += PGSIZE)
-            {
-                // kalloc, if mem = 0, kalloc failed
-                if((mem = kalloc()) == 0)
-                {
-                    printf("KALLOC FAILED\n");
-                    return 0;
-                }
-                printf("KALLOC SUCCESS\n");
-
-                memset(mem, 0, PGSIZE);
-
-                int perm = PTE_U;
-                if(prot & PROT_READ) perm |= PTE_R;
-                if(prot & PROT_WRITE) perm |= PTE_W;
-                // if map pages fails
-                if(mappages(p->pagetable, ptr, PGSIZE, (uint64)mem, perm) < 0)
-                {
-                    // free page memory
-                    kfree(mem);
-                    return 0;
-                }
-            }
-        }
-        */
     }
     
     // mmaps value updates

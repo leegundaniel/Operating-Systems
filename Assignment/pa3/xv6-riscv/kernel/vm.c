@@ -461,7 +461,6 @@ page_fault_handler(struct proc *p, uint64 va, int write)
     // find mmap index
     struct mmap_area *m = 0;
     char* mem = 0;
-    printf("OVER HERE");    
     for(int i = 0; i < 64; i++)
     {
         // find current process in mmaps array
@@ -502,9 +501,8 @@ page_fault_handler(struct proc *p, uint64 va, int write)
     // file mapping
     if(!(m->flags & MAP_ANONYMOUS) && m->f)
     {
-        printf("BRO U SUCK\n");
         struct file *f = m->f;
-        int offset = m->offset;
+        int offset = m->offset + (newva - m->addr);
 
         // temporarily switch file offset
         int offset_store = f->off;
@@ -514,20 +512,14 @@ page_fault_handler(struct proc *p, uint64 va, int write)
         // restore offset
         f->off = offset_store;
     }
-    pte_t *pte = walk(p->pagetable, va, 0);
-    if(pte && (*pte & PTE_V))
-    {
-        uvmunmap(p->pagetable, va, 1, 1);
-    }
     
     int perm = PTE_U;
     if(m->prot & PROT_READ) perm |= PTE_R;
     if(m->prot & PROT_WRITE) perm |= (PTE_R | PTE_W);
-    printf("HUH");
+    
     // map pages, return -1 on error
     if(mappages(p->pagetable, newva, PGSIZE, (uint64)mem, perm) < 0)
     {
-        printf("OH MY GOSH");
         kfree(mem);
         return -1;
     }
