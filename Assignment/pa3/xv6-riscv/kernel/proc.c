@@ -1128,7 +1128,6 @@ mmap(uint64 addr, int length, int prot, int flags, int fd, int offset)
                     return 0;
                 }
                 // read from file
-                intr_on();
                 fileread(f, ptr, PGSIZE);
             }
             f->off = off;
