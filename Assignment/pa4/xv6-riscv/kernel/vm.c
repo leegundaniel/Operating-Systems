@@ -15,6 +15,8 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+extern struct page pages[];
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
@@ -224,6 +226,14 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
   mem = kalloc();
   memset(mem, 0, PGSIZE);
   mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W|PTE_R|PTE_X|PTE_U);
+  
+  // pa4: add page to lru
+  uint64 idx = ((uint64)mem - KERNBASE) / PGSIZE;
+  struct page *page = &pages[idx];
+  page->pagetable = pagetable;
+  page->vaddr = 0;
+  lru_add(page);
+
   memmove(mem, src, sz);
 }
 
@@ -251,6 +261,13 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
       uvmdealloc(pagetable, a, oldsz);
       return 0;
     }
+ 
+    // pa4: add page to lru
+    uint64 idx = ((uint64)mem - KERNBASE) / PGSIZE;
+    struct page *page = &pages[idx];
+    page->pagetable = pagetable;
+    page->vaddr = (char *)a;
+    lru_add(page);
   }
   return newsz;
 }
@@ -331,6 +348,12 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       kfree(mem);
       goto err;
     }
+    // pa4: add page to LRU
+    uint64 idx = ((uint64)mem - KERNBASE) / PGSIZE;
+    struct page *page = &pages[idx];
+    page->pagetable = new;
+    page->vaddr = (char*)i;
+    lru_add(page);
   }
   return 0;
 
