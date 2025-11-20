@@ -101,7 +101,7 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-// pa5: syscall
+// pa4: syscall
 extern uint64 sys_swapread(void);
 extern uint64 sys_swapwrite(void);
 extern uint64 sys_swapstat(void);
