@@ -15,6 +15,11 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+// pa4: pages list
+extern struct page pages[];
+
+extern char end[];
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
@@ -168,6 +173,19 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     a += PGSIZE;
     pa += PGSIZE;
   }
+  
+  // pa4 track user pages only
+  if(pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP)
+  {
+    // retrieve the specified page of the physical address
+    struct page *p = &pages[pa / PGSIZE];
+    // save the page information and add to lru
+    p->pagetable = pagetable;
+    p->vaddr = (char*)va;
+    // add to lru list
+    lru_add(p);
+  }
+
   return 0;
 }
 
@@ -190,6 +208,25 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       panic("uvmunmap: not mapped");
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
+    // pa4: if page is swapped out (PTE_S is set)
+    if((*pte & PTE_S))
+    {
+        // get block index from the ppn
+        uint64 blk = (*pte) >> 10;
+        // free swap slot
+        free_swapslot(blk);
+        *pte = 0;
+        continue;
+    }
+    // page is still in memory (PTE_V and PTE_A)
+    if((*pte & PTE_V) && (*pte & PTE_A))
+    {
+        // it's still in the memory, so we have to remove from the LRU
+        uint64 pa = PTE2PA(*pte);
+        struct page *p = &pages[pa / PGSIZE];
+        // remove page from LRU list
+        lru_remove(p);
+    }
     if(do_free){
       uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
@@ -321,7 +358,39 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+    {
+        // pa4: check if it is a swapped page
+        if(*pte & PTE_S)
+        {
+            pa = (uint64)kalloc();
+            if(pa == 0)
+                goto err;
+
+            // read from the swap space
+            uint64 blk = (*pte) >> 10;
+            swapread(pa, blk * 8);
+
+            // free swap slot
+            free_swapslot(blk);
+
+            // update parent's PTE: valid, accessed, not swapped
+            flags = PTE_FLAGS(*pte);
+            flags |= PTE_V;
+            flags |= PTE_A;
+            flags &= ~PTE_S;
+            *pte = PA2PTE(pa) | flags;
+
+            // add parent to the LRU
+            struct page *p = &pages[pa / PGSIZE];
+            p->pagetable = old;
+            p->vaddr = (char*)i;
+            lru_add(p);
+        }
+        else
+        {
+            panic("uvmcopy: page not present");
+        }
+    }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)

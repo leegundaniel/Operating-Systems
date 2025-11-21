@@ -66,6 +66,11 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+// pa4
+void            lru_add(struct page*);
+void            lru_remove(struct page*);
+int             set_swapslot(void);
+void            free_swapslot(int);
 
 // log.c
 void            initlog(int, struct superblock*);

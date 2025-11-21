@@ -11,6 +11,8 @@ uint ticks;
 
 extern char trampoline[], uservec[], userret[];
 
+extern struct page pages[];
+
 // in kernelvec.S, calls kerneltrap().
 void kernelvec();
 
@@ -67,6 +69,56 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } 
+  // pa4: swap in when page fault
+  else if((r_scause() == 13) || (r_scause() == 15)) {
+    // get the virtual address of the fault
+
+    uint64 va = r_stval();
+
+    // retrieve the pte using the walk
+    pte_t *pte = walk(p->pagetable, va, 0);
+    
+    // check if pte exists and if it is in swapslot (PTE_S)
+    if(pte && (*pte & PTE_S) && !(*pte & PTE_V)) {
+        // get new physical page
+        char *mem = kalloc();
+
+        // if mem allocation failed, kill process
+        if(mem == 0)
+        {
+            printf("usertrap: OOM during swap in");
+            setkilled(p);
+        }
+        else
+        {
+            // find block for swapping
+            uint64 blk = (*pte) >> 10;
+
+            // read data
+            swapread((uint64)mem, blk * 8);
+
+            // update PTE flags: valid, accessed and not swapped
+            uint64 flags = PTE_FLAGS(*pte);
+            flags |= PTE_V;
+            flags |= PTE_A;
+            flags &= ~PTE_S;
+
+            // map physical address
+            *pte = PA2PTE(mem) | flags;
+
+            // free swap slot
+            free_swapslot(blk);
+
+            // add to lru list
+            struct page *page = &pages[(uint64)mem / PGSIZE];
+            page->pagetable = p->pagetable;
+            page->vaddr = (char*)va;
+            lru_add(page);
+
+            sfence_vma();
+        }
+    }
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
