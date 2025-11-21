@@ -67,6 +67,7 @@ void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
 // pa4
+void            swapinit(void);
 void            lru_add(struct page*);
 void            lru_remove(struct page*);
 int             set_swapslot(void);

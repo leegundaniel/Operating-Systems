@@ -175,7 +175,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   }
   
   // pa4 track user pages only
-  if(pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP)
+  if(kernel_pagetable != 0 && pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP)
   {
     // retrieve the specified page of the physical address
     struct page *p = &pages[pa / PGSIZE];
@@ -218,8 +218,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         *pte = 0;
         continue;
     }
-    // page is still in memory (PTE_V and PTE_A)
-    if((*pte & PTE_V) && (*pte & PTE_A))
+    // page is still in memory (PTE_V)
+    if(*pte & PTE_V)
     {
         // it's still in the memory, so we have to remove from the LRU
         uint64 pa = PTE2PA(*pte);

@@ -10,6 +10,7 @@
 #include "defs.h"
 
 void freerange(void *pa_start, void *pa_end);
+int swap_out(void);
 
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
@@ -42,10 +43,8 @@ kinit()
   // pa4: initialize locks
   initlock(&swaplock, "swaplock");
   initlock(&lrulock, "lru");
-  // initialize bitmap
-  bitmap = end;
-  memset(bitmap, 0, PGSIZE);
-  freerange(end, (void*)PHYSTOP);
+  
+  freerange(end + PGSIZE, (void*)PHYSTOP);
 }
 
 void
@@ -91,13 +90,44 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
+  if(!r)
+  {
+    release(&kmem.lock);
+
+    // try swapping and acquiring another page
+    if(!swap_out())
+    {
+        // error message
+        printf("Kalloc: OOM\n");
+        return 0;
+    }
+    
+    acquire(&kmem.lock);
+    r = kmem.freelist;
+  }
+  
   if(r)
     kmem.freelist = r->next;
   release(&kmem.lock);
+  
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+// pa4: swapinit
+void
+swapinit()
+{
+    // allocate page for bitmap
+    bitmap = kalloc();
+
+    if(bitmap == 0)
+        panic("swapinit: OOM");
+
+    // initialize memory of bitmap
+    memset(bitmap, 0, PGSIZE);
 }
 
 // pa4: setting a swap slot in bitmap
@@ -217,12 +247,19 @@ swap_out(void)
     uint64 pa;
     int idx;
 
+    // check if swap space is available
+    idx = set_swapslot();
+    if(idx == -1)
+        return 0;
+
     acquire(&lrulock);
 
     // if lru is empty, return
     if(page_lru_head == 0)
     {
         release(&lrulock);
+        // free swap space
+        free_swapslot_nolock(idx);
         return 0;
     }
 
@@ -261,11 +298,6 @@ swap_out(void)
     // release lru lock
     release(&lrulock);
 
-    // now prepare a swap slot in the bitmap
-    // if fail, return 0
-    if((idx = set_swapslot()) == -1)
-        return 0;
-    
     // write into swap space
     swapwrite(pa, idx * 8);
     
