@@ -120,6 +120,13 @@ usertrap(void)
             sfence_vma();
         }
     }
+    else
+    {
+        printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+        printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+        setkilled(p);
+
+    }
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());

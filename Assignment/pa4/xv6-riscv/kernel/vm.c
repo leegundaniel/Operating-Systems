@@ -407,15 +407,22 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
+    // pa4: allocate child page
+    if((mem = kalloc()) == 0)
+        goto err;
     if((*pte & PTE_V) == 0)
     {
         // pa4: check if it is a swapped page
         if(*pte & PTE_S)
         {
+            // allocate parent page
             pa = (uint64)kalloc();
             if(pa == 0)
+            {
+                kfree(mem);
                 goto err;
-
+            }
+            
             // read from the swap space
             uint64 blk = (*pte) >> 10;
             swapread(pa, blk);
@@ -438,31 +445,25 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
         }
         else
         {
+            kfree(mem);
             panic("uvmcopy: page not present");
         }
     }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-
-    // pa4: walk through to retrieve pte again
-    pte = walk(old, i, 0);
-    // check if page was swapped out
-    if((*pte & PTE_V) == 0)
-    {
-        // retry to bring swapped out pages
-        kfree(mem);
-        // retry current loop
-        i -= PGSIZE;
-        continue;
-    }
     memmove(mem, (char*)pa, PGSIZE);
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
       goto err;
     }
+    
+    struct page *child = &pages[(uint64)mem / PGSIZE];
+    child->pagetable = new;
+    child->vaddr = (char*)i;
+    lru_add(child);
+
   }
+  
   return 0;
 
  err:
