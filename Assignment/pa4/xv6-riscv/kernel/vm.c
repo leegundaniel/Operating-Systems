@@ -176,7 +176,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
         struct page *p = &pages[pa / PGSIZE];
         // save the page information and add to lru
         p->pagetable = pagetable;
-        p->vaddr = (char*)va;
+        p->vaddr = (char*)a;
         // add to lru list
         lru_add(p);
     }
