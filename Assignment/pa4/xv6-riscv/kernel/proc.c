@@ -125,8 +125,10 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  release(&p->lock);
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+    acquire(&p->lock);
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -134,6 +136,7 @@ found:
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
+  acquire(&p->lock);
   if(p->pagetable == 0){
     freeproc(p);
     release(&p->lock);
@@ -287,13 +290,15 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
+  
+  release(&np->lock);
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
-    release(&np->lock);
+    // release(&np->lock);
     return -1;
   }
+  acquire(&np->lock);
   np->sz = p->sz;
 
   // copy saved user registers.
@@ -350,7 +355,7 @@ exit(int status)
 
   if(p == initproc)
     panic("init exiting");
-
+  
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
@@ -366,7 +371,6 @@ exit(int status)
   p->cwd = 0;
 
   acquire(&wait_lock);
-
   // Give any children to init.
   reparent(p);
 
@@ -379,7 +383,6 @@ exit(int status)
   p->state = ZOMBIE;
 
   release(&wait_lock);
-
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");

@@ -123,8 +123,41 @@ walkaddr(pagetable_t pagetable, uint64 va)
   pte = walk(pagetable, va, 0);
   if(pte == 0)
     return 0;
+  // pa4: page not valid, but check if it is swapped out
   if((*pte & PTE_V) == 0)
+  {
+    if((*pte & PTE_S))
+    {
+        // get new physical page
+        void *mem = kalloc();
+        if(mem == 0) return 0;
+        
+        // read from swap
+        uint64 blk = (*pte) >> 10;
+        swapread((uint64)mem, blk);
+        free_swapslot(blk);
+
+        // update pte: valid, accessed, not swapped
+        uint64 flags = PTE_FLAGS(*pte);
+        flags |= PTE_V;
+        flags |= PTE_A;
+        flags &= ~PTE_S;
+        *pte = PA2PTE(mem) | flags;
+
+        // add to LRU
+        struct page *p = &pages[(uint64)mem / PGSIZE];
+        p->pagetable = pagetable;
+        p->vaddr = (char*)va;
+        lru_add(p);
+
+        // flush TLB
+        sfence_vma();
+
+        // return physical address
+        return (uint64)mem;
+    }
     return 0;
+  }
   if((*pte & PTE_U) == 0)
     return 0;
   pa = PTE2PA(*pte);
@@ -171,7 +204,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     *pte = PA2PTE(pa) | perm | PTE_V;
 
     // pa4 track user pages only
-    if(kernel_pagetable != 0 && pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP)
+    if(kernel_pagetable != 0 && pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP && a != TRAPFRAME && a != TRAMPOLINE)
     {
         // retrieve the specified page of the physical address
         struct page *p = &pages[pa / PGSIZE];
@@ -412,6 +445,18 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
+
+    // pa4: walk through to retrieve pte again
+    pte = walk(old, i, 0);
+    // check if page was swapped out
+    if((*pte & PTE_V) == 0)
+    {
+        // retry to bring swapped out pages
+        kfree(mem);
+        // retry current loop
+        i -= PGSIZE;
+        continue;
+    }
     memmove(mem, (char*)pa, PGSIZE);
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
