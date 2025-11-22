@@ -218,7 +218,7 @@ lru_remove(struct page *p)
         return;
 
     if(p->next == 0 || p->prev == 0)
-        panic("lru_remove: page not in LRU");
+        return;
 
     // if page is the only page in the lru
     if(page_lru_head == p && p->next == p)
@@ -277,6 +277,27 @@ swap_out(void)
     {
         //retrieve pte of page
         pte = walk(p->pagetable, (uint64)p->vaddr, 0);
+
+        uint64 check = (pte) ? PTE2PA(*pte) : 0;
+
+        // ensure page is valid
+        if(pte == 0 || (*pte & PTE_V) == 0 || check < KERNBASE)
+        {
+            struct page *np = p;
+            p = p->next;
+            // remove invalid page
+            lru_remove(np);
+            
+            // if list is now empty, exit
+            if(page_lru_head == 0)
+            {
+                release(&lrulock);
+                free_swapslot_nolock(idx);
+                return 0;
+            }
+
+            continue;
+        }
         
         // if access bit is set
         if((*pte) & PTE_A)

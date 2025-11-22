@@ -99,7 +99,13 @@ void test_leak_cycle() {
     for(int i=1; i<=cycles; i++) {
         printf("Cycle %d/%d...\n", i, cycles);
         int pid = fork();
-        
+       
+        if(pid <0)
+        {
+            printf("FAILURE forked returned -1\n");
+            exit(1);
+        }
+
         if(pid == 0) {
             // Child tries to eat 16MB
             char *mem = sbrk(pages_per_cycle * PGSIZE);

@@ -204,7 +204,9 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     *pte = PA2PTE(pa) | perm | PTE_V;
 
     // pa4 track user pages only
-    if(kernel_pagetable != 0 && pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP && a != TRAPFRAME && a != TRAMPOLINE)
+    if(kernel_pagetable != 0 && pagetable != kernel_pagetable &&
+       pa >= (uint64)end && pa < PHYSTOP
+       && a != TRAPFRAME && a != TRAMPOLINE)
     {
         // retrieve the specified page of the physical address
         struct page *p = &pages[pa / PGSIZE];
@@ -214,7 +216,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
         // add to lru list
         lru_add(p);
     }
-
+    
     if(a == last)
       break;
     a += PGSIZE;
@@ -265,15 +267,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         {
             acquire(&lrulock);
             // remove from LRU
-            if((*pte & PTE_V))
-            {
-                struct page *p = &pages[pa / PGSIZE];
-            
-                if(p->next && p->prev)
-                {
-                    lru_remove(p);
-                }
-            }
+            struct page *p = &pages[pa / PGSIZE];
+            lru_remove(p);
             release(&lrulock);
         }
     }
@@ -457,11 +452,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       goto err;
     }
     
-    struct page *child = &pages[(uint64)mem / PGSIZE];
-    child->pagetable = new;
-    child->vaddr = (char*)i;
-    lru_add(child);
-
   }
   
   return 0;
