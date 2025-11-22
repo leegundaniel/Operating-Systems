@@ -72,7 +72,6 @@ kfree(void *pa)
   memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
-
   acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
@@ -213,7 +212,7 @@ lru_add(struct page *p)
 
 // pa4: remove page from lru without lock
 void
-lru_remove_nolock(struct page *p)
+lru_remove(struct page *p)
 {
     if(page_lru_head == 0)
         return;
@@ -241,14 +240,6 @@ lru_remove_nolock(struct page *p)
     p->prev = 0;
 }
 
-// pa4: remove page from lru
-void
-lru_remove(struct page *p)
-{
-    acquire(&lrulock);
-    lru_remove_nolock(p);
-    release(&lrulock);
-}
 
 // pa4: swap out function
 // return 0 if fail, 1 on success
@@ -286,7 +277,7 @@ swap_out(void)
     {
         //retrieve pte of page
         pte = walk(p->pagetable, (uint64)p->vaddr, 0);
-
+        
         // if access bit is set
         if((*pte) & PTE_A)
         {
@@ -311,7 +302,7 @@ swap_out(void)
     *pte &= ~PTE_V;
 
     // remove from LRU list
-    lru_remove_nolock(p);
+    lru_remove(p);
     // release lru lock
     release(&lrulock);
 

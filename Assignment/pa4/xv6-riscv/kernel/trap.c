@@ -75,6 +75,7 @@ usertrap(void)
     // get the virtual address of the fault
 
     uint64 va = r_stval();
+    uint64 va0 = PGROUNDDOWN(va);
 
     // retrieve the pte using the walk
     pte_t *pte = walk(p->pagetable, va, 0);
@@ -113,7 +114,7 @@ usertrap(void)
             // add to lru list
             struct page *page = &pages[(uint64)mem / PGSIZE];
             page->pagetable = p->pagetable;
-            page->vaddr = (char*)va;
+            page->vaddr = (char*)va0;
             lru_add(page);
 
             sfence_vma();

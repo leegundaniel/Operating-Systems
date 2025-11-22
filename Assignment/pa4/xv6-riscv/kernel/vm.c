@@ -17,6 +17,7 @@ extern char trampoline[]; // trampoline.S
 
 // pa4: pages list
 extern struct page pages[];
+extern struct spinlock lrulock;
 
 extern char end[];
 
@@ -219,7 +220,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       panic("uvmunmap: not mapped");
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
-    // pa4: page is still in memory (PTE_V)
+
+    // page is still in memory (PTE_V)
     if(*pte & PTE_V)
     {
         // it's still in the memory, so we have to remove from the LRU
@@ -228,9 +230,18 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         // exclude kernel pages
         if(pa >= (uint64)end && pa < PHYSTOP)
         {
+            acquire(&lrulock);
             // remove from LRU
-            struct page *p = &pages[pa / PGSIZE];
-            lru_remove(p);
+            if((*pte & PTE_V))
+            {
+                struct page *p = &pages[pa / PGSIZE];
+            
+                if(p->next && p->prev)
+                {
+                    lru_remove(p);
+                }
+            }
+            release(&lrulock);
         }
     }
     if(do_free){
