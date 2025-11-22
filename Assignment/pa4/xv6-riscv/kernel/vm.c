@@ -168,24 +168,25 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if(*pte & PTE_V)
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
+
+    // pa4 track user pages only
+    if(kernel_pagetable != 0 && pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP)
+    {
+        // retrieve the specified page of the physical address
+        struct page *p = &pages[pa / PGSIZE];
+        // save the page information and add to lru
+        p->pagetable = pagetable;
+        p->vaddr = (char*)va;
+        // add to lru list
+        lru_add(p);
+    }
+
     if(a == last)
       break;
     a += PGSIZE;
     pa += PGSIZE;
   }
   
-  // pa4 track user pages only
-  if(kernel_pagetable != 0 && pagetable != kernel_pagetable && pa >= (uint64)end && pa < PHYSTOP)
-  {
-    // retrieve the specified page of the physical address
-    struct page *p = &pages[pa / PGSIZE];
-    // save the page information and add to lru
-    p->pagetable = pagetable;
-    p->vaddr = (char*)va;
-    // add to lru list
-    lru_add(p);
-  }
-
   return 0;
 }
 
@@ -204,10 +205,6 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0)
-      panic("uvmunmap: not mapped");
-    if(PTE_FLAGS(*pte) == PTE_V)
-      panic("uvmunmap: not a leaf");
     // pa4: if page is swapped out (PTE_S is set)
     if((*pte & PTE_S))
     {
@@ -218,14 +215,23 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         *pte = 0;
         continue;
     }
-    // page is still in memory (PTE_V)
+    if((*pte & PTE_V) == 0)
+      panic("uvmunmap: not mapped");
+    if(PTE_FLAGS(*pte) == PTE_V)
+      panic("uvmunmap: not a leaf");
+    // pa4: page is still in memory (PTE_V)
     if(*pte & PTE_V)
     {
         // it's still in the memory, so we have to remove from the LRU
         uint64 pa = PTE2PA(*pte);
-        struct page *p = &pages[pa / PGSIZE];
-        // remove page from LRU list
-        lru_remove(p);
+        
+        // exclude kernel pages
+        if(pa >= (uint64)end && pa < PHYSTOP)
+        {
+            // remove from LRU
+            struct page *p = &pages[pa / PGSIZE];
+            lru_remove(p);
+        }
     }
     if(do_free){
       uint64 pa = PTE2PA(*pte);
@@ -368,7 +374,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
             // read from the swap space
             uint64 blk = (*pte) >> 10;
-            swapread(pa, blk * 8);
+            swapread(pa, blk);
 
             // free swap slot
             free_swapslot(blk);

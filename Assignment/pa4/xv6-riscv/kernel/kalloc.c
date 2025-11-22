@@ -90,12 +90,13 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if(!r)
+  // pa4: swap out
+  while(!r)
   {
     release(&kmem.lock);
 
     // try swapping and acquiring another page
-    if(!swap_out())
+    if(swap_out() == 0)
     {
         // error message
         printf("Kalloc: OOM\n");
@@ -135,8 +136,10 @@ swapinit()
 int
 set_swapslot()
 {
+    //
+    int maxpages = SWAPMAX / (PGSIZE/1024);
     // check the bits in swap space
-    for(int i = 0; i < SWAPMAX; i++)
+    for(int i = 0; i < maxpages; i++)
     {
         int byte = i / 8;
         int bit = i % 8;
@@ -212,6 +215,12 @@ lru_add(struct page *p)
 void
 lru_remove_nolock(struct page *p)
 {
+    if(page_lru_head == 0)
+        return;
+
+    if(p->next == 0 || p->prev == 0)
+        panic("lru_remove: page not in LRU");
+
     // if page is the only page in the lru
     if(page_lru_head == p && p->next == p)
     {
@@ -226,6 +235,10 @@ lru_remove_nolock(struct page *p)
         if(page_lru_head == p)
             page_lru_head = p->next;
     }
+
+    // clean up pointers
+    p->next = 0;
+    p->prev = 0;
 }
 
 // pa4: remove page from lru
@@ -242,6 +255,10 @@ lru_remove(struct page *p)
 int
 swap_out(void)
 {
+    // ensure that the bitmap exists
+    if(bitmap == 0)
+        return 0;
+
     struct page *p;
     pte_t *pte;
     uint64 pa;
@@ -299,7 +316,7 @@ swap_out(void)
     release(&lrulock);
 
     // write into swap space
-    swapwrite(pa, idx * 8);
+    swapwrite(pa, idx);
     
     // update PTE with swap flag and swap index
     *pte = ((uint64)idx << 10) | PTE_S | PTE_FLAGS(*pte);

@@ -96,7 +96,7 @@ usertrap(void)
             uint64 blk = (*pte) >> 10;
 
             // read data
-            swapread((uint64)mem, blk * 8);
+            swapread((uint64)mem, blk);
 
             // update PTE flags: valid, accessed and not swapped
             uint64 flags = PTE_FLAGS(*pte);

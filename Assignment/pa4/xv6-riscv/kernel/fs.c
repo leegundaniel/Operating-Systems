@@ -20,6 +20,7 @@
 #include "fs.h"
 #include "buf.h"
 #include "file.h"
+#include "memlayout.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
@@ -705,6 +706,9 @@ swapread(uint64 ptr, int blkno)
   struct buf *bp;
   int i;
   const int BLKS_PER_PG = PGSIZE/BSIZE;
+  // user = 0: Physical address (higher than KERNBASE)
+  // user = 1: Virtual address (lower than KERNBASE)
+  int user = (ptr >= KERNBASE) ? 0: 1;
 
   if (blkno < 0 || blkno >= SWAPMAX / BLKS_PER_PG)
     panic("swapread: blkno exceeded range");
@@ -712,7 +716,8 @@ swapread(uint64 ptr, int blkno)
   for(i = 0; i < BLKS_PER_PG; i++){
     nr_sectors_read++;
     bp = bread(0, SWAPBASE + BLKS_PER_PG * blkno + i);
-    if(either_copyout(1, ptr + i * BSIZE, bp->data, BSIZE) == -1)
+    // use user variable for copyout
+    if(either_copyout(user, ptr + i * BSIZE, bp->data, BSIZE) == -1)
       panic("swapread: either_copyout failed");
     brelse(bp);
   }
@@ -725,6 +730,9 @@ swapwrite(uint64 ptr, int blkno)
   struct buf *bp;
   int i;
   const int BLKS_PER_PG = PGSIZE / BSIZE;
+  // user = 0: Physical address (higher than KERNBASE)
+  // user = 1: Virtual address (lower than KERNBASE)
+  int user = (ptr >= KERNBASE) ? 0: 1;
 
   if (blkno < 0 || blkno >= SWAPMAX / BLKS_PER_PG)
     panic("swapwrite: blkno exceeded range");
@@ -732,7 +740,8 @@ swapwrite(uint64 ptr, int blkno)
   for(i = 0; i < BLKS_PER_PG; i++){
     nr_sectors_write++;
     bp = bread(0, SWAPBASE + BLKS_PER_PG * blkno + i);
-    if(either_copyin(bp->data, 1, ptr + i * BSIZE, BSIZE) == -1)
+    // use user variable for copyin
+    if(either_copyin(bp->data, user, ptr + i * BSIZE, BSIZE) == -1)
       panic("swapwrite: either_copyin failed");
     bwrite(bp);
     brelse(bp);
