@@ -259,9 +259,9 @@ swap_out(void)
     idx = set_swapslot();
     if(idx == -1)
         return 0;
-
+    
     acquire(&lrulock);
-
+    
     // if lru is empty, return
     if(page_lru_head == 0)
     {

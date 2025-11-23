@@ -130,7 +130,8 @@ walkaddr(pagetable_t pagetable, uint64 va)
     {
         // get new physical page
         void *mem = kalloc();
-        if(mem == 0) return 0;
+        if(mem == 0) 
+            return 0;
         
         // read from swap
         uint64 blk = (*pte) >> 10;
@@ -447,6 +448,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     memmove(mem, (char*)pa, PGSIZE);
+    
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
       goto err;

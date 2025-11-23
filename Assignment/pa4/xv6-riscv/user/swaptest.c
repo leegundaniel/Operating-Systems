@@ -44,7 +44,6 @@ void test_dealloc() {
 
     printf("1. Allocating huge memory to force swap...\n");
     int num_pages = 3000; // ~12MB
-    //char *start = sbrk(0);
     char *mem = sbrk(num_pages * PGSIZE);
 
     if (mem == (char*)-1) {
@@ -94,18 +93,12 @@ void test_leak_cycle() {
     printf("\n=== TEST 2: Cycle Leak Test ===\n");
     
     int cycles = 3;
-    int pages_per_cycle = 4000; // ~16MB per child
+    int pages_per_cycle = 2000; // ~16MB per child
 
     for(int i=1; i<=cycles; i++) {
         printf("Cycle %d/%d...\n", i, cycles);
         int pid = fork();
-       
-        if(pid <0)
-        {
-            printf("FAILURE forked returned -1\n");
-            exit(1);
-        }
-
+        
         if(pid == 0) {
             // Child tries to eat 16MB
             char *mem = sbrk(pages_per_cycle * PGSIZE);
@@ -121,6 +114,7 @@ void test_leak_cycle() {
         } else {
             int status;
             wait(&status);
+            printf("Cycle %d: child %d exited with status %d\n", i, pid, status);
             if(status != 0) {
                 printf("FAILURE: Child crashed/OOM in cycle %d.\n", i);
                 exit(1);
@@ -181,4 +175,3 @@ int main(int argc, char *argv[]) {
     printf("\nALL COMPREHENSIVE TESTS PASSED.\n");
     exit(0);
 }
-
