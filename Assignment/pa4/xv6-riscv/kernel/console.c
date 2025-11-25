@@ -64,7 +64,9 @@ consolewrite(int user_src, uint64 src, int n)
     char c;
     if(either_copyin(&c, user_src, src+i, 1) == -1)
       break;
+    acquire(&cons.lock);
     uartputc(c);
+    release(&cons.lock);
   }
 
   return i;
@@ -109,9 +111,10 @@ consoleread(int user_dst, uint64 dst, int n)
 
     // copy the input byte to the user-space buffer.
     cbuf = c;
+    release(&cons.lock);
     if(either_copyout(user_dst, dst, &cbuf, 1) == -1)
       break;
-
+    acquire(&cons.lock);
     dst++;
     --n;
 

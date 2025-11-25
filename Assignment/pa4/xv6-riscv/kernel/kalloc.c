@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
+#include "proc.h"
 
 void freerange(void *pa_start, void *pa_end);
 int swap_out(void);
@@ -86,6 +87,8 @@ void *
 kalloc(void)
 {
   struct run *r;
+  struct cpu *c = mycpu();
+  int nested = c->noff;
 
   acquire(&kmem.lock);
   r = kmem.freelist;
@@ -93,6 +96,10 @@ kalloc(void)
   while(!r)
   {
     release(&kmem.lock);
+
+    // ensure that there are no additional locks held before swapping
+    if(myproc() == 0 || nested > 0)
+        return 0;
 
     // try swapping and acquiring another page
     if(swap_out() == 0)
@@ -133,10 +140,11 @@ swapinit()
 // pa4: setting a swap slot in bitmap
 // return: index of free block in swap space, -1 if fail
 int
-set_swapslot()
+set_swapslot(void)
 {
     //
     int maxpages = SWAPMAX / (PGSIZE/1024);
+    
     // check the bits in swap space
     for(int i = 0; i < maxpages; i++)
     {
@@ -281,7 +289,7 @@ swap_out(void)
         uint64 check = (pte) ? PTE2PA(*pte) : 0;
 
         // ensure page is valid
-        if(pte == 0 || (*pte & PTE_V) == 0 || check < KERNBASE)
+        if(pte == 0 || (*pte & PTE_V) == 0 || check < (uint64)end || check >= PHYSTOP)
         {
             struct page *np = p;
             p = p->next;
