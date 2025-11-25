@@ -69,9 +69,30 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } 
+    // pa4: illegail instructions caused by stale TLB
+  } /*else if((r_scause() == 2))
+  {
+    // check if this is a stale TLB
+    pte_t *pte = walk(p->pagetable, r_sepc(), 0);
+    
+    // if pte is swapped
+    // TLB was stale
+    if(pte && (*pte & PTE_S) && !(*pte & PTE_V))
+    {
+        // flush TLB
+        sfence_vma();
+        usertrapret();
+    }
+    else
+    {
+        printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+        printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+        setkilled(p);
+    }
+
+
   // pa4: swap in when page fault
-  else if((r_scause() == 12) || (r_scause() == 13) || (r_scause() == 15)) {
+  }*/ else if((r_scause() == 12) || (r_scause() == 13) || (r_scause() == 15)) {
     // get the virtual address of the fault
 
     uint64 va = r_stval();

@@ -327,16 +327,6 @@ swap_out(void)
 
     // calculate physical address of PTE
     pa = PTE2PA(*pte);
-    // mark invalid
-    *pte &= ~PTE_V;
-
-    // remove from LRU list
-    lru_remove(p);
-    // release lru lock
-    release(&lrulock);
-
-    // write into swap space
-    swapwrite(pa, idx);
     
     // update PTE with swap flag and swap index
     *pte = ((uint64)idx << 10) | PTE_S | PTE_FLAGS(*pte);
@@ -344,8 +334,16 @@ swap_out(void)
     *pte &= ~PTE_V;
     *pte &= ~PTE_A;
 
+    // remove from LRU list
+    lru_remove(p);
+    // release lru lock
+    release(&lrulock);
+    
     // flush TLB
     sfence_vma();
+
+    // write into swap space
+    swapwrite(pa, idx);
     
     // free pa
     kfree((void*)pa);
